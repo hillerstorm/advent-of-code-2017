@@ -45,14 +45,14 @@ diffMinMax list =
             0
 
 
-findDivisors : List Int -> Maybe ( Int, Int )
+findDivisors : List Int -> Maybe Int
 findDivisors list =
-    case List.sort list |> List.reverse of
+    case list of
         x :: y :: xs ->
             if x % y == 0 then
-                Just ( x, y )
+                Just <| x // y
             else
-                case findDivisors (x :: xs) of
+                case findDivisors <| x :: xs of
                     Nothing ->
                         findDivisors <| y :: xs
 
@@ -64,18 +64,8 @@ findDivisors list =
 
 
 diffDiv : List Int -> Int
-diffDiv list =
-    case findDivisors list of
-        Just ( x, y ) ->
-            x // y
-
-        Nothing ->
-            0
-
-
-sumLines : (List Int -> Int) -> List (List Int) -> Int
-sumLines f =
-    List.sum << List.map f
+diffDiv =
+    Maybe.withDefault 0 << findDivisors << List.sortWith (flip compare)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -83,8 +73,8 @@ update msg model =
     case msg of
         Run ->
             { model
-                | firstSum = sumLines diffMinMax model.input
-                , secondSum = sumLines diffDiv model.input
+                | firstSum = List.sum <| List.map diffMinMax model.input
+                , secondSum = List.sum <| List.map diffDiv model.input
             }
                 ! []
 
