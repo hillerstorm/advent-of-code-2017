@@ -33,7 +33,7 @@ func main() {
 	steps := 0
 	numLines := int64(len(lines))
 
-  part := 2
+	part := 2
 
 	for idx >= 0 && idx < numLines {
 		num := lines[idx]
