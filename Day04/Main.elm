@@ -42,7 +42,7 @@ isUnique w =
 
 isUniqueWithAnagrams : List String -> Bool
 isUniqueWithAnagrams =
-    isUnique << List.map (String.fromList << List.sort << String.toList)
+    isUnique << List.map (List.sort << String.toList)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
