@@ -6,14 +6,10 @@ import (
 	"strings"
 )
 
-func contains(xs []string, x string, cnt int) bool {
-	seenCount := 0
+func contains(xs []string, x string) bool {
 	for _, e := range xs {
 		if e == x {
-			seenCount = seenCount + 1
-			if seenCount == cnt {
-				return true
-			}
+			return true
 		}
 	}
 	return false
@@ -41,6 +37,15 @@ func toStr(xs []int64) string {
 	return str
 }
 
+func part2(xs []string, x string) int64 {
+	for i, e := range xs {
+		if e == x {
+			return int64(len(xs) - i)
+		}
+	}
+	return -1
+}
+
 func main() {
 	input := "14 0 15 12 11 11 3 5 1 6 8 4 9 1 8 4"
 	var seen []string
@@ -53,8 +58,8 @@ func main() {
 	}
 
 	steps := int64(0)
-	blockNumStrings := toStr(blockNums)
-	for !contains(seen, blockNumStrings, 1) {
+	blockNumStrings := input
+	for !contains(seen, blockNumStrings) {
 		seen = append(seen, blockNumStrings)
 		idx, maxNum := max(blockNums)
 		blockNums[idx] = 0
@@ -68,20 +73,5 @@ func main() {
 	}
 
 	fmt.Println("Part 1: " + strconv.FormatInt(steps, 10))
-
-	steps = int64(0)
-	for !contains(seen, blockNumStrings, 2) {
-		seen = append(seen, blockNumStrings)
-		idx, maxNum := max(blockNums)
-		blockNums[idx] = 0
-		for maxNum > 0 {
-			idx = (idx + 1) % inputLength
-			blockNums[idx] = blockNums[idx] + 1
-			maxNum = maxNum - 1
-		}
-		blockNumStrings = toStr(blockNums)
-		steps = steps + 1
-	}
-
-	fmt.Println("Part 2: " + strconv.FormatInt(steps, 10))
+	fmt.Println("Part 2: " + strconv.FormatInt(part2(seen, blockNumStrings), 10))
 }
