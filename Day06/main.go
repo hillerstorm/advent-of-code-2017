@@ -15,9 +15,9 @@ func contains(xs []string, x string) bool {
 	return false
 }
 
-func max(xs []int64) (int, int64) {
+func max(xs []int) (int, int) {
 	idx := -1
-	max := int64(0)
+	max := 0
 	for i, e := range xs {
 		if e > max {
 			if i != -1 {
@@ -29,18 +29,18 @@ func max(xs []int64) (int, int64) {
 	return idx, max
 }
 
-func toStr(xs []int64) string {
+func toStr(xs []int) string {
 	str := ""
 	for _, e := range xs {
-		str = str + " " + strconv.FormatInt(e, 10)
+		str = str + " " + strconv.Itoa(e)
 	}
 	return str
 }
 
-func part2(xs []string, x string) int64 {
+func part2(xs []string, x string) int {
 	for i, e := range xs {
 		if e == x {
-			return int64(len(xs) - i)
+			return len(xs) - i
 		}
 	}
 	return -1
@@ -51,13 +51,13 @@ func main() {
 	var seen []string
 	blocks := strings.Split(input, " ")
 	inputLength := len(blocks)
-	var blockNums []int64
+	var blockNums []int
 	for _, b := range blocks {
-		num, _ := strconv.ParseInt(b, 10, 0)
+		num, _ := strconv.Atoi(b)
 		blockNums = append(blockNums, num)
 	}
 
-	steps := int64(0)
+	steps := 0
 	blockNumStrings := input
 	for !contains(seen, blockNumStrings) {
 		seen = append(seen, blockNumStrings)
@@ -72,6 +72,6 @@ func main() {
 		steps = steps + 1
 	}
 
-	fmt.Println("Part 1: " + strconv.FormatInt(steps, 10))
-	fmt.Println("Part 2: " + strconv.FormatInt(part2(seen, blockNumStrings), 10))
+	fmt.Println("Part 1: " + strconv.Itoa(steps))
+	fmt.Println("Part 2: " + strconv.Itoa(part2(seen, blockNumStrings)))
 }
