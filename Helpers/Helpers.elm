@@ -1,4 +1,4 @@
-module Helpers.Helpers exposing (trigger, Delay(..), count, unique)
+module Helpers.Helpers exposing (trigger, Delay(..), count, unique, prettyMaybe)
 
 import Task exposing (..)
 import Process exposing (sleep)
@@ -33,3 +33,13 @@ count f =
 unique : List comparable -> List comparable
 unique =
     Set.toList << Set.fromList
+
+
+prettyMaybe : Maybe a -> String
+prettyMaybe aMaybe =
+    case aMaybe of
+        Just x ->
+            toString x
+
+        Nothing ->
+            toString aMaybe

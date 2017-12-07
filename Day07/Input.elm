@@ -4,7 +4,7 @@ module Day07.Input exposing (parsedInput, Input, Prgrm)
 type alias Prgrm =
     { name : String
     , weight : Int
-    , above : List String
+    , nodes : List String
     }
 
 
@@ -1267,22 +1267,11 @@ parseWeight =
 parseProgram : String -> Maybe Prgrm
 parseProgram string =
     case String.words string of
-        name :: weight :: "->" :: above ->
-            let
-                abv =
-                    List.map trimComma above
-
-                wght =
-                    parseWeight weight
-            in
-                Just <| Prgrm name wght abv
+        name :: weight :: "->" :: nodes ->
+            Just <| Prgrm name (parseWeight weight) <| List.map trimComma nodes
 
         [ name, weight ] ->
-            let
-                wght =
-                    parseWeight weight
-            in
-                Just <| Prgrm name wght []
+            Just <| Prgrm name (parseWeight weight) []
 
         _ ->
             Nothing

@@ -2,14 +2,14 @@ module Day07.Main exposing (main)
 
 import Html exposing (..)
 import Day07.Input exposing (parsedInput, Input, Prgrm)
-import Helpers.Helpers exposing (trigger, Delay(..))
+import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
 import List.Extra
 
 
 type alias Model =
     { input : Input
-    , firstPart : Maybe FullProgram
-    , secondPart : Int
+    , firstPart : Maybe Node
+    , secondPart : Maybe Int
     }
 
 
@@ -31,70 +31,73 @@ init : ( Model, Cmd Msg )
 init =
     { input = parsedInput
     , firstPart = Nothing
-    , secondPart = 0
+    , secondPart = Nothing
     }
         ! [ trigger NoDelay Run ]
 
 
-type FullProgram
-    = FullProgram
-        { name : String
-        , weight : Int
-        , totalWeight : Int
-        , above : List FullProgram
-        }
+type alias Node =
+    { name : String
+    , weight : Int
+    , totalWeight : Int
+    , nodes : Nodes
+    }
+
+
+type Nodes
+    = Nodes (List Node)
+
+
+findInvalid : Nodes -> Maybe Int
+findInvalid (Nodes nodes) =
+    case nodes of
+        [] ->
+            Nothing
+
+        { totalWeight } :: _ ->
+            case List.partition ((==) totalWeight << .totalWeight) nodes of
+                ( [ a ], b :: _ ) ->
+                    findInvalid a.nodes
+                        |> Maybe.withDefault (a.weight - ((a.totalWeight) - (b.totalWeight)))
+                        |> Just
+
+                ( a :: _, [ b ] ) ->
+                    findInvalid b.nodes
+                        |> Maybe.withDefault (b.weight - ((b.totalWeight) - (a.totalWeight)))
+                        |> Just
+
+                _ ->
+                    Nothing
 
 
 findByName : List Prgrm -> String -> Maybe Prgrm
 findByName programs name =
-    List.Extra.find (\x -> x.name == name) programs
+    List.Extra.find ((==) name << .name) programs
 
 
-getTotalWeight : List Prgrm -> Prgrm -> Int
-getTotalWeight programs program =
-    case program.above of
-        [] ->
-            program.weight
-
-        xs ->
-            let
-                aboveWeight =
-                    List.sum <| List.map (getTotalWeight programs) <| List.filterMap (findByName programs) program.above
-            in
-                program.weight + aboveWeight
-
-
-findInvalid : FullProgram -> Maybe Int
-findInvalid program =
-    case program of
-        FullProgram x ->
-            case x.above of
-                [] ->
-                    Nothing
-
-                xs ->
-                    Nothing
-
-
-getWeight : FullProgram -> Int
-getWeight program =
-    case program of
-        FullProgram x ->
-            x.totalWeight
-
-
-buildTree : List Prgrm -> Prgrm -> FullProgram
-buildTree programs program =
+buildTree : List Prgrm -> Prgrm -> Node
+buildTree programs { name, weight, nodes } =
     let
-        above =
-            List.map (buildTree programs) <| List.filterMap (findByName programs) program.above
+        mappedNodes =
+            nodes
+                |> List.filterMap (findByName programs)
+                |> List.map (buildTree programs)
+
+        nodesWeight =
+            mappedNodes
+                |> List.map .totalWeight
+                |> List.sum
     in
-        FullProgram
-            { name = program.name
-            , weight = program.weight
-            , totalWeight = program.weight + (List.sum <| List.map getWeight above)
-            , above = above
-            }
+        { name = name
+        , weight = weight
+        , totalWeight = weight + nodesWeight
+        , nodes = Nodes mappedNodes
+        }
+
+
+isBottomNode : List Prgrm -> Prgrm -> Bool
+isBottomNode programs { name } =
+    not <| List.any (List.member name << .nodes) programs
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -102,25 +105,25 @@ update msg model =
     case msg of
         Run ->
             let
-                bottomProgram =
+                bottomNode =
                     model.input
-                        |> List.Extra.find (\x -> not <| List.any (\y -> (List.length y.above > 0) && List.member x.name y.above) model.input)
+                        |> List.Extra.find (isBottomNode model.input)
                         |> Maybe.map (buildTree model.input)
 
                 secondPart =
-                    case bottomProgram of
-                        Just x ->
-                            findInvalid x |> Maybe.withDefault 0
-
-                        Nothing ->
-                            0
+                    bottomNode
+                        |> Maybe.andThen (findInvalid << .nodes)
             in
-                { model | firstPart = bottomProgram } ! []
+                { model
+                    | firstPart = bottomNode
+                    , secondPart = secondPart
+                }
+                    ! []
 
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ (model.firstPart |> Maybe.map .name |> prettyMaybe) ]
+        , div [] [ text <| "Part 2: " ++ (prettyMaybe model.secondPart) ]
         ]
