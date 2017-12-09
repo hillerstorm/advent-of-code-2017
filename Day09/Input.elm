@@ -30,8 +30,8 @@ parseGarbage garbage str =
     case String.uncons str of
         Just ( '!', xs ) ->
             case String.uncons xs of
-                Just ( x, xs ) ->
-                    parseGarbage (garbage ++ "!" ++ String.fromChar x) xs
+                Just ( _, xs ) ->
+                    parseGarbage garbage xs
 
                 Nothing ->
                     Debug.crash "Invalid cancel"
@@ -81,12 +81,10 @@ parse str =
                 ( grp, rest ) =
                     parseGroup [] xs
             in
-                case rest of
-                    "" ->
-                        grp
-
-                    _ ->
-                        Debug.crash "Invalid input"
+                if String.isEmpty rest then
+                    grp
+                else
+                    Debug.crash "Invalid input"
 
         _ ->
             Debug.crash "Invalid input"

@@ -2,13 +2,13 @@ module Day09.Main exposing (main)
 
 import Html exposing (..)
 import Day09.Input exposing (parsedInput, Input, Thing(..))
-import Helpers.Helpers exposing (trigger, Delay(..))
+import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
 
 
 type alias Model =
     { input : Input
-    , firstPart : Int
-    , secondPart : Int
+    , firstPart : Maybe Int
+    , secondPart : Maybe Int
     }
 
 
@@ -29,8 +29,8 @@ main =
 init : ( Model, Cmd Msg )
 init =
     { input = parsedInput
-    , firstPart = 0
-    , secondPart = 0
+    , firstPart = Nothing
+    , secondPart = Nothing
     }
         ! [ trigger NoDelay Run ]
 
@@ -38,25 +38,31 @@ init =
 scoreThing : Int -> Thing -> Int
 scoreThing score thing =
     case thing of
-        Thing grp ->
-            getScore grp <| score + 1
+        Thing { children } ->
+            getScore (score + 1) children
 
         Garbage _ ->
             0
 
 
-getScore : Input -> Int -> Int
-getScore grp score =
-    case grp.children of
-        [] ->
-            score
+getScore : Int -> List Thing -> Int
+getScore score =
+    ((+) score) << List.sum << List.map (scoreThing score)
 
-        xs ->
-            let
-                childrenScore =
-                    List.sum <| List.map (scoreThing score) xs
-            in
-                score + childrenScore
+
+countGarbage : Thing -> Int
+countGarbage thing =
+    case thing of
+        Thing { children } ->
+            garbageLength children
+
+        Garbage garbage ->
+            String.length garbage
+
+
+garbageLength : List Thing -> Int
+garbageLength =
+    List.sum << List.map countGarbage
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -64,7 +70,8 @@ update msg model =
     case msg of
         Run ->
             { model
-                | firstPart = getScore model.input 1
+                | firstPart = Just <| getScore 1 model.input.children
+                , secondPart = Just <| garbageLength model.input.children
             }
                 ! []
 
@@ -72,6 +79,6 @@ update msg model =
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
+        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
         ]
