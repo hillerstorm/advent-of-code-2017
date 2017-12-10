@@ -1,19 +1,26 @@
 module Template.Main exposing (main)
 
 import Html exposing (..)
-import Template.Input exposing (parsedInput, Input)
-import Helpers.Helpers exposing (trigger, Delay(..))
+import Template.Input exposing (rawInput)
+import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
+
+
+type Input
+    = NotParsed
+    | Parsed String
 
 
 type alias Model =
-    { input : Input
-    , firstPart : Int
-    , secondPart : Int
+    { input : String
+    , parsedInput : Input
+    , firstPart : Maybe Int
+    , secondPart : Maybe Int
     }
 
 
 type Msg
-    = Run
+    = Parse
+    | Run
 
 
 main : Program Never Model Msg
@@ -28,16 +35,28 @@ main =
 
 init : ( Model, Cmd Msg )
 init =
-    { input = parsedInput
-    , firstPart = 0
-    , secondPart = 0
+    { input = rawInput
+    , parsedInput = NotParsed
+    , firstPart = Nothing
+    , secondPart = Nothing
     }
-        ! [ trigger NoDelay Run ]
+        ! [ trigger NoDelay Parse ]
+
+
+parse : String -> Input
+parse =
+    Parsed << identity
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Parse ->
+            { model
+                | parsedInput = parse model.input
+            }
+                ! [ trigger NoDelay Run ]
+
         Run ->
             model ! []
 
@@ -45,6 +64,12 @@ update msg model =
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondPart ]
-        ]
+        (case model.parsedInput of
+            NotParsed ->
+                [ div [] [ text "Parsing..." ] ]
+
+            Parsed input ->
+                [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
+                , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+                ]
+        )
