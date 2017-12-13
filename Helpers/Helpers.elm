@@ -1,9 +1,10 @@
-module Helpers.Helpers exposing (trigger, Delay(..), count, unique, prettyMaybe)
+module Helpers.Helpers exposing (trigger, Delay(..), count, unique, prettyMaybe, unsafeGet)
 
 import Task exposing (..)
 import Process exposing (sleep)
 import Time exposing (millisecond)
 import Set
+import Dict
 
 
 type Delay
@@ -43,3 +44,13 @@ prettyMaybe aMaybe =
 
         Nothing ->
             toString aMaybe
+
+
+unsafeGet : comparable -> Dict.Dict comparable v -> v
+unsafeGet key dict =
+    case Dict.get key dict of
+        Just x ->
+            x
+
+        Nothing ->
+            Debug.crash "Key not found..."
