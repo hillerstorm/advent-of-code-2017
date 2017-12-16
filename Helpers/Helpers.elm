@@ -1,4 +1,14 @@
-module Helpers.Helpers exposing (trigger, Delay(..), count, unique, prettyMaybe, unsafeGet, unsafeToInt)
+module Helpers.Helpers
+    exposing
+        ( trigger
+        , Delay(..)
+        , count
+        , unique
+        , prettyMaybe
+        , unsafeGet
+        , unsafeToInt
+        , mapTuple
+        )
 
 import Task exposing (..)
 import Process exposing (sleep)
@@ -64,3 +74,8 @@ unsafeToInt str =
 
         Err _ ->
             Debug.crash "Invalid number"
+
+
+mapTuple : (a -> b -> c) -> ( a, b ) -> c
+mapTuple f ( a, b ) =
+    f a b
