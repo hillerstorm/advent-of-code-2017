@@ -1,22 +1,12 @@
 module Day03.Main exposing (main)
 
 import Html exposing (..)
-import Helpers.Helpers exposing (trigger, Delay(..))
+import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
 
 
 parsedInput : Int
 parsedInput =
     289326
-
-
-type alias BoundingBox =
-    { iteration : Int
-    , step : Int
-    , topRight : Int
-    , topLeft : Int
-    , bottomLeft : Int
-    , bottomRight : Int
-    }
 
 
 type alias Position =
@@ -43,6 +33,7 @@ type alias Meta =
 type Square
     = Origo
     | Other Meta
+    | WithoutSum Position
 
 
 type Direction
@@ -55,18 +46,18 @@ type Direction
 type alias Model =
     { input : Int
     , steps : Int
-    , boundingBox : BoundingBox
     , current : Square
     , triggerCount : Int
     , currentStep : Int
     , resetCounter : Int
     , direction : Direction
+    , firstPart : Maybe Int
+    , secondPart : Maybe Int
     }
 
 
 type Msg
-    = FirstPart
-    | SecondPart
+    = NextStep
 
 
 main : Program Never Model Msg
@@ -82,80 +73,16 @@ main =
 init : ( Model, Cmd Msg )
 init =
     { input = parsedInput
-    , steps = 0
-    , boundingBox =
-        { iteration = 1
-        , step = 2
-        , topRight = 3
-        , topLeft = 5
-        , bottomLeft = 7
-        , bottomRight = 9
-        }
+    , steps = 2
     , current = Origo
     , triggerCount = -1
     , currentStep = 0
     , resetCounter = 0
     , direction = Right
+    , firstPart = Nothing
+    , secondPart = Nothing
     }
-        ! [ trigger NoDelay FirstPart ]
-
-
-getBoundingBox : Int -> BoundingBox -> BoundingBox
-getBoundingBox input current =
-    if current.bottomRight >= input then
-        current
-    else
-        let
-            step =
-                current.step + 2
-
-            topRight =
-                current.bottomRight + step
-
-            topLeft =
-                topRight + step
-
-            bottomLeft =
-                topLeft + step
-
-            bottomRight =
-                bottomLeft + step
-
-            newBoundingBox =
-                { iteration = current.iteration + 1
-                , step = step
-                , topRight = topRight
-                , topLeft = topLeft
-                , bottomLeft = bottomLeft
-                , bottomRight = bottomRight
-                }
-        in
-            getBoundingBox input newBoundingBox
-
-
-calculateSteps : Int -> BoundingBox -> ( Int, BoundingBox )
-calculateSteps input boundingBox =
-    let
-        finalBoundingBox =
-            getBoundingBox input boundingBox
-
-        closestCorner =
-            if input <= finalBoundingBox.topRight then
-                finalBoundingBox.topRight
-            else if input <= finalBoundingBox.topLeft then
-                finalBoundingBox.topLeft
-            else if input <= finalBoundingBox.bottomLeft then
-                finalBoundingBox.bottomLeft
-            else
-                finalBoundingBox.bottomRight
-
-        midpoint =
-            closestCorner - (finalBoundingBox.step // 2)
-
-        offset =
-            abs <| midpoint - input
-    in
-        ( offset + finalBoundingBox.iteration, finalBoundingBox )
+        ! [ trigger NoDelay NextStep ]
 
 
 add : Position -> Position -> Position
@@ -208,6 +135,9 @@ getSum pos square =
             in
                 newSum + getSum pos meta.previous
 
+        WithoutSum _ ->
+            0
+
 
 getNextDir : Int -> Direction -> Direction
 getNextDir a dir =
@@ -231,21 +161,7 @@ getNextDir a dir =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        FirstPart ->
-            if model.input == 1 then
-                model ! []
-            else
-                let
-                    ( steps, boundingBox ) =
-                        calculateSteps model.input model.boundingBox
-                in
-                    { model
-                        | steps = steps
-                        , boundingBox = boundingBox
-                    }
-                        ! [ trigger NoDelay <| SecondPart ]
-
-        SecondPart ->
+        NextStep ->
             let
                 pos =
                     case model.current of
@@ -255,18 +171,31 @@ update msg model =
                         Other meta ->
                             meta.pos
 
+                        WithoutSum p ->
+                            p
+
                 squarePos =
                     getNextSquare pos model.direction
 
                 squareSum =
-                    getSum squarePos model.current
+                    case model.secondPart of
+                        Just _ ->
+                            0
+
+                        Nothing ->
+                            getSum squarePos model.current
 
                 square =
-                    Other
-                        { pos = squarePos
-                        , sum = squareSum
-                        , previous = model.current
-                        }
+                    case model.secondPart of
+                        Just _ ->
+                            WithoutSum squarePos
+
+                        Nothing ->
+                            Other
+                                { pos = squarePos
+                                , sum = squareSum
+                                , previous = model.current
+                                }
 
                 nextTriggerCount =
                     if model.resetCounter == 0 then
@@ -286,11 +215,43 @@ update msg model =
                     else
                         model.currentStep - 1
 
+                firstPart =
+                    case model.firstPart of
+                        Just _ ->
+                            model.firstPart
+
+                        Nothing ->
+                            if model.steps == model.input then
+                                Just <| (abs <| Tuple.first squarePos) + (abs <| Tuple.second squarePos)
+                            else
+                                Nothing
+
+                secondPart =
+                    case model.secondPart of
+                        Just _ ->
+                            model.secondPart
+
+                        Nothing ->
+                            if squareSum > model.input then
+                                Just squareSum
+                            else
+                                Nothing
+
                 nextCmd =
-                    if squareSum > model.input then
-                        []
-                    else
-                        [ trigger WithDelay SecondPart ]
+                    case firstPart of
+                        Just _ ->
+                            []
+
+                        Nothing ->
+                            [ trigger NoDelay NextStep ]
+
+                nextSteps =
+                    case firstPart of
+                        Just _ ->
+                            model.steps
+
+                        Nothing ->
+                            model.steps + 1
             in
                 { model
                     | current = square
@@ -298,23 +259,16 @@ update msg model =
                     , currentStep = nextStep
                     , resetCounter = nextCounter
                     , direction = getNextDir model.currentStep model.direction
+                    , steps = nextSteps
+                    , firstPart = firstPart
+                    , secondPart = secondPart
                 }
                     ! nextCmd
-
-
-extractSum : Square -> Int
-extractSum square =
-    case square of
-        Origo ->
-            origoSum
-
-        Other meta ->
-            meta.sum
 
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.steps ]
-        , div [] [ text <| "Part 2: " ++ (toString <| extractSum model.current) ]
+        [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
+        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
         ]
