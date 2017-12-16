@@ -1,4 +1,4 @@
-module Day12.Main exposing (main)
+module Day12.Main exposing (main, getGroup, countGroups)
 
 import Html exposing (..)
 import Day12.Input exposing (rawInput)

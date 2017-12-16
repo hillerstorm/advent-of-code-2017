@@ -1,4 +1,4 @@
-module Helpers.Helpers exposing (trigger, Delay(..), count, unique, prettyMaybe, unsafeGet)
+module Helpers.Helpers exposing (trigger, Delay(..), count, unique, prettyMaybe, unsafeGet, unsafeToInt)
 
 import Task exposing (..)
 import Process exposing (sleep)
@@ -54,3 +54,13 @@ unsafeGet key dict =
 
         Nothing ->
             Debug.crash "Key not found..."
+
+
+unsafeToInt : String -> Int
+unsafeToInt str =
+    case String.toInt str of
+        Ok val ->
+            val
+
+        Err _ ->
+            Debug.crash "Invalid number"

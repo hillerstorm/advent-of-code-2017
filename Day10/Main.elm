@@ -1,4 +1,4 @@
-module Day10.Main exposing (main)
+module Day10.Main exposing (main, calcKnotHash)
 
 import Html exposing (..)
 import Day10.Input exposing (rawInput)
@@ -131,19 +131,59 @@ advance list idx step lengths =
                 ( newList, newIndex, xs )
 
 
+nextHashRound : List Int -> Int -> List Int -> Int -> List Int -> Int -> List Int
+nextHashRound lengths rounds list index current step =
+    if rounds > 0 then
+        let
+            ( newList, newIndex, newLengths ) =
+                advance list index step current
+
+            newCurrent =
+                case newLengths of
+                    [] ->
+                        lengths
+
+                    _ ->
+                        newLengths
+
+            newRounds =
+                case newLengths of
+                    [] ->
+                        rounds - 1
+
+                    _ ->
+                        rounds
+        in
+            nextHashRound lengths newRounds newList newIndex newCurrent <| step + 1
+    else
+        list
+
+
+calcKnotHash : String -> String
+calcKnotHash string =
+    let
+        lengths =
+            parseSecond string
+
+        list =
+            (List.range 0 255)
+    in
+        getKnotHash <| nextHashRound lengths 64 list 0 lengths 0
+
+
 calcDense : List Int -> List Int -> List Int
-calcDense list result =
+calcDense result list =
     case list of
         [] ->
             result
 
         xs ->
-            (List.foldl Bitwise.xor 0 <| List.take 16 xs) :: calcDense (List.drop 16 xs) []
+            (List.foldl Bitwise.xor 0 <| List.take 16 xs) :: calcDense [] (List.drop 16 xs)
 
 
 getKnotHash : List Int -> String
 getKnotHash =
-    List.foldl (flip (++)) "" << List.map (String.padLeft 2 '0' << Hex.toString)
+    List.foldl (flip (++)) "" << List.map (String.padLeft 2 '0' << Hex.toString) << calcDense []
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -289,11 +329,8 @@ update msg model =
             case model.second of
                 Just second ->
                     let
-                        denseHash =
-                            calcDense second.list []
-
                         knotHash =
-                            getKnotHash denseHash
+                            getKnotHash second.list
 
                         newSecond =
                             { second
