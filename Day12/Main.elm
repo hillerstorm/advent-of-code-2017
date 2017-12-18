@@ -3,7 +3,7 @@ module Day12.Main exposing (main, getGroup, countGroups)
 import Html exposing (..)
 import Day12.Input exposing (rawInput)
 import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe, unsafeGet)
-import Dict
+import Dict.LLRB as Dict
 import Set
 
 

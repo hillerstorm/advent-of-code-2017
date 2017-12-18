@@ -14,7 +14,7 @@ import Task exposing (..)
 import Process exposing (sleep)
 import Time exposing (millisecond)
 import Set
-import Dict
+import Dict.LLRB as Dict
 
 
 type Delay

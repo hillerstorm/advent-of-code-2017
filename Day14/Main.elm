@@ -5,7 +5,7 @@ import Day14.Input exposing (rawInput)
 import Day10.Main exposing (calcKnotHash)
 import Day12.Main exposing (getGroup, countGroups)
 import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe, unsafeToInt, unique, unsafeGet)
-import Dict
+import Dict.LLRB as Dict
 import ParseInt
 import Set
 

@@ -2,8 +2,8 @@ module Day08.Main exposing (main)
 
 import Html exposing (..)
 import Day08.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
-import Dict exposing (..)
+import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe, unsafeToInt)
+import Dict.LLRB as Dict exposing (..)
 
 
 type alias Instruction =
@@ -75,16 +75,6 @@ parseOp string =
             Debug.crash "Invalid op"
 
 
-parseValue : String -> Int
-parseValue str =
-    case String.toInt str of
-        Ok val ->
-            val
-
-        Err _ ->
-            Debug.crash "Invalid value"
-
-
 parseFunc : String -> Int -> Int -> Bool
 parseFunc string =
     case string of
@@ -116,9 +106,9 @@ parseInstruction string =
         [ register, op, value, "if", compRegister, compFunc, compValue ] ->
             { register = register
             , op = parseOp op
-            , value = parseValue value
+            , value = unsafeToInt value
             , compRegister = compRegister
-            , compValue = parseValue compValue
+            , compValue = unsafeToInt compValue
             , compFunc = parseFunc compFunc
             }
 
