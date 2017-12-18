@@ -20,7 +20,8 @@ type alias Model =
 
 
 type Msg
-    = Run
+    = First
+    | Second
 
 
 main : Program Never Model Msg
@@ -41,13 +42,40 @@ init =
     , firstPart = Nothing
     , secondPart = Nothing
     }
-        ! [ trigger NoDelay Run ]
+        ! [ trigger NoDelay First ]
+
+
+findSecondPart : Int -> Int -> Int -> Int -> Int -> Int -> Int
+findSecondPart input index zeroIndex next len i =
+    if i < 50000000 then
+        let
+            nextIndex =
+                ((input + index) % len) + 1
+
+            nextZero =
+                if nextIndex <= zeroIndex then
+                    zeroIndex + 1
+                else
+                    zeroIndex
+
+            newNext =
+                if nextIndex == (nextZero + 1) then
+                    i
+                else
+                    next
+
+            nextLen =
+                len + 1
+        in
+            findSecondPart input nextIndex nextZero newNext nextLen <| i + 1
+    else
+        next
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Run ->
+        First ->
             let
                 len =
                     List.length model.state
@@ -84,10 +112,10 @@ update msg model =
                 nextCmd =
                     case firstPart of
                         Just _ ->
-                            []
+                            [ trigger WithDelay Second ]
 
                         Nothing ->
-                            [ trigger NoDelay Run ]
+                            [ trigger NoDelay First ]
             in
                 { model
                     | state = newState
@@ -96,10 +124,25 @@ update msg model =
                 }
                     ! nextCmd
 
+        Second ->
+            let
+                secondPart =
+                    findSecondPart model.input 0 0 0 1 1
+            in
+                { model
+                    | secondPart = Just secondPart
+                }
+                    ! []
+
+
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map toString
+
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+        , div [] [ text <| "Part 2: " ++ print model.secondPart ]
         ]
