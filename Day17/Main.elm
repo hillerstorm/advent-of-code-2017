@@ -45,21 +45,15 @@ init =
         ! [ trigger NoDelay First ]
 
 
-findSecondPart : Int -> Int -> Int -> Int -> Int -> Int -> Int
-findSecondPart input index zeroIndex next len i =
+findSecondPart : Int -> Int -> Int -> Int -> Int -> Int
+findSecondPart input index next len i =
     if i < 50000000 then
         let
             nextIndex =
                 ((input + index) % len) + 1
 
-            nextZero =
-                if nextIndex <= zeroIndex then
-                    zeroIndex + 1
-                else
-                    zeroIndex
-
             newNext =
-                if nextIndex == (nextZero + 1) then
+                if nextIndex == 1 then
                     i
                 else
                     next
@@ -67,7 +61,7 @@ findSecondPart input index zeroIndex next len i =
             nextLen =
                 len + 1
         in
-            findSecondPart input nextIndex nextZero newNext nextLen <| i + 1
+            findSecondPart input nextIndex newNext nextLen <| i + 1
     else
         next
 
@@ -127,7 +121,7 @@ update msg model =
         Second ->
             let
                 secondPart =
-                    findSecondPart model.input 0 0 0 1 1
+                    findSecondPart model.input 0 0 1 1
             in
                 { model
                     | secondPart = Just secondPart
