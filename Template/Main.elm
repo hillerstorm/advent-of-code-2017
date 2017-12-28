@@ -2,7 +2,7 @@ module Template.Main exposing (main)
 
 import Html exposing (..)
 import Template.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
+import Helpers.Helpers exposing (trigger, Delay(..))
 
 
 type Input
@@ -61,6 +61,11 @@ update msg model =
             model ! []
 
 
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map toString
+
+
 view : Model -> Html msg
 view model =
     div []
@@ -69,7 +74,7 @@ view model =
                 [ div [] [ text "Parsing..." ] ]
 
             Parsed input ->
-                [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-                , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+                [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+                , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]
         )
