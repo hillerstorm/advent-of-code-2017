@@ -40,7 +40,7 @@ init =
     , firstPart = Nothing
     , secondPart = Nothing
     }
-        ! [ trigger NoDelay Parse ]
+        ! [ trigger WithDelay Parse ]
 
 
 parse : String -> Input
@@ -55,10 +55,15 @@ update msg model =
             { model
                 | parsedInput = parse model.input
             }
-                ! [ trigger NoDelay Run ]
+                ! [ trigger WithDelay Run ]
 
         Run ->
-            model ! []
+            case model.parsedInput of
+                NotParsed ->
+                    model ! [ trigger WithDelay Parse ]
+
+                Parsed string ->
+                    model ! []
 
 
 print : Maybe Int -> String
