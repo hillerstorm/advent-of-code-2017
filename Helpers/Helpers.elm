@@ -8,6 +8,7 @@ module Helpers.Helpers
         , unsafeGet
         , unsafeToInt
         , mapTuple
+        , sortDesc
         )
 
 import Task exposing (..)
@@ -79,3 +80,16 @@ unsafeToInt str =
 mapTuple : (a -> b -> c) -> ( a, b ) -> c
 mapTuple f ( a, b ) =
     f a b
+
+
+sortDesc : comparable -> comparable -> Order
+sortDesc a b =
+    case compare a b of
+        LT ->
+            GT
+
+        GT ->
+            LT
+
+        EQ ->
+            EQ
