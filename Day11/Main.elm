@@ -1,8 +1,9 @@
 module Day11.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day11.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
+import Html exposing (..)
 
 
 type Move
@@ -32,9 +33,9 @@ type Msg
     | CalcResult
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -47,50 +48,52 @@ origo =
     ( 0, 0, 0 )
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , current = origo
-    , maxDistance = 0
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Next ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , current = origo
+      , maxDistance = 0
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Next
+    )
 
 
-parseMove : String -> Move
+parseMove : String -> Maybe Move
 parseMove mv =
     case mv of
         "n" ->
-            N
+            Just N
 
         "ne" ->
-            NE
+            Just NE
 
         "se" ->
-            SE
+            Just SE
 
         "s" ->
-            S
+            Just S
 
         "sw" ->
-            SW
+            Just SW
 
         "nw" ->
-            NW
+            Just NW
 
         _ ->
-            Debug.crash "Invalid move"
+            Nothing
 
 
 nextMove : String -> ( Maybe Move, String )
 nextMove str =
     if String.isEmpty str then
         ( Nothing, str )
+
     else
         case String.split "," str of
             x :: xs ->
-                ( Just <| parseMove x, String.join "," xs )
+                ( parseMove x, String.join "," xs )
 
             [] ->
                 ( Nothing, str )
@@ -120,7 +123,7 @@ move ( x, y, z ) mov =
 
 distance : HexPosition -> HexPosition -> Int
 distance ( x1, y1, z1 ) ( x2, y2, z2 ) =
-    ((abs (x1 - x2)) + (abs (y1 - y2)) + (abs (z1 - z2))) // 2
+    (abs (x1 - x2) + abs (y1 - y2) + abs (z1 - z2)) // 2
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -129,7 +132,9 @@ update msg model =
         Next ->
             case nextMove model.input of
                 ( Nothing, _ ) ->
-                    model ! [ trigger NoDelay CalcResult ]
+                    ( model
+                    , trigger NoDelay CalcResult
+                    )
 
                 ( Just x, newInput ) ->
                     let
@@ -142,22 +147,25 @@ update msg model =
                         newMax =
                             if dist > model.maxDistance then
                                 dist
+
                             else
                                 model.maxDistance
                     in
-                        { model
-                            | input = newInput
-                            , current = newCurrent
-                            , maxDistance = newMax
-                        }
-                            ! [ trigger NoDelay Next ]
+                    ( { model
+                        | input = newInput
+                        , current = newCurrent
+                        , maxDistance = newMax
+                      }
+                    , trigger NoDelay Next
+                    )
 
         CalcResult ->
-            { model
+            ( { model
                 | firstPart = Just <| distance origo model.current
                 , secondPart = Just model.maxDistance
-            }
-                ! []
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html msg
@@ -167,6 +175,7 @@ view model =
             [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
             , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
             ]
+
          else
             [ div [] [ text "Calculating..." ] ]
         )

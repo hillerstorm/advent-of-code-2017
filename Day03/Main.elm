@@ -1,7 +1,8 @@
 module Day03.Main exposing (main)
 
+import Browser
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
 import Html exposing (..)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
 
 
 parsedInput : Int
@@ -60,9 +61,9 @@ type Msg
     = NextStep
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -70,19 +71,20 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = parsedInput
-    , steps = 2
-    , current = Origo
-    , triggerCount = -1
-    , currentStep = 0
-    , resetCounter = 0
-    , direction = Right
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay NextStep ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = parsedInput
+      , steps = 2
+      , current = Origo
+      , triggerCount = -1
+      , currentStep = 0
+      , resetCounter = 0
+      , direction = Right
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay NextStep
+    )
 
 
 add : Position -> Position -> Position
@@ -113,7 +115,7 @@ distance a b =
 
 adjacentTo : Position -> Position -> Bool
 adjacentTo ( x1, y1 ) ( x2, y2 ) =
-    (distance x1 x2) < 2 && (distance y1 y2) < 2
+    distance x1 x2 < 2 && distance y1 y2 < 2
 
 
 getSum : Position -> Square -> Int
@@ -122,6 +124,7 @@ getSum pos square =
         Origo ->
             if adjacentTo pos origo then
                 origoSum
+
             else
                 0
 
@@ -130,10 +133,11 @@ getSum pos square =
                 newSum =
                     if adjacentTo pos meta.pos then
                         meta.sum
+
                     else
                         0
             in
-                newSum + getSum pos meta.previous
+            newSum + getSum pos meta.previous
 
         WithoutSum _ ->
             0
@@ -154,6 +158,7 @@ getNextDir a dir =
 
             Down ->
                 Right
+
     else
         dir
 
@@ -200,18 +205,21 @@ update msg model =
                 nextTriggerCount =
                     if model.resetCounter == 0 then
                         model.triggerCount + 1
+
                     else
                         model.triggerCount
 
                 nextCounter =
                     if model.resetCounter == 0 then
                         nextTriggerCount * 2
+
                     else
                         model.resetCounter - 1
 
                 nextStep =
                     if model.currentStep == 0 then
                         nextTriggerCount
+
                     else
                         model.currentStep - 1
 
@@ -223,6 +231,7 @@ update msg model =
                         Nothing ->
                             if model.steps == model.input then
                                 Just <| (abs <| Tuple.first squarePos) + (abs <| Tuple.second squarePos)
+
                             else
                                 Nothing
 
@@ -234,6 +243,7 @@ update msg model =
                         Nothing ->
                             if squareSum > model.input then
                                 Just squareSum
+
                             else
                                 Nothing
 
@@ -253,17 +263,18 @@ update msg model =
                         Nothing ->
                             model.steps + 1
             in
-                { model
-                    | current = square
-                    , triggerCount = nextTriggerCount
-                    , currentStep = nextStep
-                    , resetCounter = nextCounter
-                    , direction = getNextDir model.currentStep model.direction
-                    , steps = nextSteps
-                    , firstPart = firstPart
-                    , secondPart = secondPart
-                }
-                    ! nextCmd
+            ( { model
+                | current = square
+                , triggerCount = nextTriggerCount
+                , currentStep = nextStep
+                , resetCounter = nextCounter
+                , direction = getNextDir model.currentStep model.direction
+                , steps = nextSteps
+                , firstPart = firstPart
+                , secondPart = secondPart
+              }
+            , Cmd.batch nextCmd
+            )
 
 
 view : Model -> Html msg

@@ -1,4 +1,4 @@
-module Day07.Input exposing (parsedInput, Input, Prgrm)
+module Day07.Input exposing (Input, Prgrm, parsedInput)
 
 
 type alias Prgrm =
@@ -1255,13 +1255,14 @@ trimComma : String -> String
 trimComma str =
     if String.endsWith "," str then
         String.dropRight 1 str
+
     else
         str
 
 
 parseWeight : String -> Int
 parseWeight =
-    Maybe.withDefault 0 << Result.toMaybe << String.toInt << String.dropLeft 1 << String.dropRight 1
+    Maybe.withDefault 0 << String.toInt << String.dropLeft 1 << String.dropRight 1
 
 
 parseProgram : String -> Maybe Prgrm

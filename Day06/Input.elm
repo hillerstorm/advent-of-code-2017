@@ -1,4 +1,4 @@
-module Day06.Input exposing (parsedInput, Input)
+module Day06.Input exposing (Input, parsedInput)
 
 
 type alias Input =
@@ -17,4 +17,4 @@ parsedInput =
 
 parse : String -> Input
 parse =
-    List.filterMap (Result.toMaybe << String.toInt) << String.words
+    List.filterMap String.toInt << String.words

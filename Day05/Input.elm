@@ -1055,4 +1055,4 @@ parsedInput =
 
 parse : String -> List Int
 parse =
-    List.filterMap (Result.toMaybe << String.toInt) << String.lines
+    List.filterMap String.toInt << String.lines

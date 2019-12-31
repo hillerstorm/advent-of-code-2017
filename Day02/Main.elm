@@ -1,8 +1,9 @@
-module Day021.Main exposing (main)
+module Day02.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day02.Input exposing (parsedInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (..)
 
 
 type alias Model =
@@ -16,9 +17,9 @@ type Msg
     = Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -26,13 +27,14 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = parsedInput
-    , firstSum = 0
-    , secondSum = 0
-    }
-        ! [ trigger NoDelay Run ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = parsedInput
+      , firstSum = 0
+      , secondSum = 0
+      }
+    , trigger NoDelay Run
+    )
 
 
 diffMinMax : List Int -> Int
@@ -49,8 +51,9 @@ findDivisors : List Int -> Maybe Int
 findDivisors list =
     case list of
         x :: y :: xs ->
-            if x % y == 0 then
+            if modBy y x == 0 then
                 Just <| x // y
+
             else
                 case findDivisors <| x :: xs of
                     Nothing ->
@@ -65,23 +68,24 @@ findDivisors list =
 
 diffDiv : List Int -> Int
 diffDiv =
-    Maybe.withDefault 0 << findDivisors << List.sortWith (flip compare)
+    Maybe.withDefault 0 << findDivisors << List.sortWith (\b a -> compare a b)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Run ->
-            { model
+            ( { model
                 | firstSum = List.sum <| List.map diffMinMax model.input
                 , secondSum = List.sum <| List.map diffDiv model.input
-            }
-                ! []
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstSum ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondSum ]
+        [ div [] [ text <| "Part 1: " ++ String.fromInt model.firstSum ]
+        , div [] [ text <| "Part 2: " ++ String.fromInt model.secondSum ]
         ]

@@ -1,8 +1,9 @@
 module Day13.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day13.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
+import Html exposing (..)
 
 
 type Input
@@ -23,9 +24,9 @@ type Msg
     | Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -33,34 +34,35 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
-toTuple : String -> ( Int, Int )
+toTuple : String -> Maybe ( Int, Int )
 toTuple str =
     case String.split ": " str of
         [ k, v ] ->
             case ( String.toInt k, String.toInt v ) of
-                ( Ok key, Ok value ) ->
-                    ( key, value )
+                ( Just key, Just value ) ->
+                    Just ( key, value )
 
                 _ ->
-                    Debug.crash "Invalid pair"
+                    Nothing
 
         _ ->
-            Debug.crash "Invalid line"
+            Nothing
 
 
 parse : String -> Input
 parse =
-    Parsed << List.map toTuple << String.lines
+    Parsed << List.filterMap toTuple << String.lines
 
 
 getIdx : Int -> Int -> Int
@@ -70,18 +72,20 @@ getIdx key value =
             (value * 2) - 2
 
         idx =
-            key % len
+            modBy len key
     in
-        if idx < value then
-            idx
-        else
-            len - idx
+    if idx < value then
+        idx
+
+    else
+        len - idx
 
 
 getSeverity : ( Int, Int ) -> Int
 getSeverity ( key, value ) =
     if getIdx key value == 0 then
         key * value
+
     else
         0
 
@@ -95,6 +99,7 @@ findOffset : List ( Int, Int ) -> Int -> Int
 findOffset layers offset =
     if List.all (isElsewhere offset) layers then
         offset
+
     else
         findOffset layers <| offset + 1
 
@@ -103,15 +108,18 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
+            ( { model
                 | parsedInput = parse model.input
-            }
-                ! [ trigger NoDelay Run ]
+              }
+            , trigger NoDelay Run
+            )
 
         Run ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger NoDelay Parse ]
+                    ( model
+                    , trigger NoDelay Parse
+                    )
 
                 Parsed layers ->
                     let
@@ -123,11 +131,12 @@ update msg model =
                         minOffset =
                             findOffset layers 0
                     in
-                        { model
-                            | firstPart = Just severity
-                            , secondPart = Just minOffset
-                        }
-                            ! []
+                    ( { model
+                        | firstPart = Just severity
+                        , secondPart = Just minOffset
+                      }
+                    , Cmd.none
+                    )
 
 
 view : Model -> Html msg

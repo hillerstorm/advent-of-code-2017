@@ -1,9 +1,10 @@
 module Day05.Main exposing (main)
 
+import Browser
+import Day05.Input exposing (parsedInput)
+import Helpers.Helpers exposing (Delay(..), trigger)
 import Html exposing (..)
 import List.Extra exposing (getAt, setAt)
-import Day05.Input exposing (parsedInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
 
 
 type State
@@ -28,9 +29,9 @@ type Msg
     = Jump
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -38,19 +39,20 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = parsedInput
-    , firstList = parsedInput
-    , firstIndex = 0
-    , firstSteps = 0
-    , firstState = Running
-    , secondList = parsedInput
-    , secondIndex = 0
-    , secondSteps = 0
-    , secondState = Running
-    }
-        ! [ trigger NoDelay Jump ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = parsedInput
+      , firstList = parsedInput
+      , firstIndex = 0
+      , firstSteps = 0
+      , firstState = Running
+      , secondList = parsedInput
+      , secondIndex = 0
+      , secondSteps = 0
+      , secondState = Running
+      }
+    , trigger NoDelay Jump
+    )
 
 
 type Part
@@ -58,7 +60,15 @@ type Part
     | Second
 
 
-getNextValues : List Int -> Int -> Int -> State -> Part -> ( List Int, Int, Int, State )
+type alias Values =
+    { list : List Int
+    , index : Int
+    , steps : Int
+    , state : State
+    }
+
+
+getNextValues : List Int -> Int -> Int -> State -> Part -> Values
 getNextValues list index steps state part =
     case state of
         Running ->
@@ -73,21 +83,20 @@ getNextValues list index steps state part =
                                 Second ->
                                     if x >= 3 then
                                         (-)
+
                                     else
                                         (+)
-                    in
-                        case setAt index (offsetFunc x 1) list of
-                            Just y ->
-                                ( y, index + x, steps + 1, Running )
 
-                            Nothing ->
-                                ( list, index + x, steps + 1, Running )
+                        newList =
+                            setAt index (offsetFunc x 1) list
+                    in
+                    Values newList (index + x) (steps + 1) Running
 
                 Nothing ->
-                    ( list, index, steps, Done )
+                    Values list index steps Done
 
         Done ->
-            ( list, index, steps, state )
+            Values list index steps state
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -95,36 +104,37 @@ update msg model =
     case msg of
         Jump ->
             let
-                ( nextFirstList, nextFirstIndex, nextFirstSteps, nextFirstState ) =
+                nextFirst =
                     getNextValues model.firstList model.firstIndex model.firstSteps model.firstState First
 
-                ( nextSecondList, nextSecondIndex, nextSecondSteps, nextSecondState ) =
+                nextSecond =
                     getNextValues model.secondList model.secondIndex model.secondSteps model.secondState Second
 
                 nextCmd =
-                    case ( nextFirstState, nextSecondState ) of
+                    case ( nextFirst.state, nextSecond.state ) of
                         ( Done, Done ) ->
                             []
 
                         _ ->
                             [ trigger NoDelay Jump ]
             in
-                { model
-                    | firstList = nextFirstList
-                    , firstIndex = nextFirstIndex
-                    , firstSteps = nextFirstSteps
-                    , firstState = nextFirstState
-                    , secondList = nextSecondList
-                    , secondIndex = nextSecondIndex
-                    , secondSteps = nextSecondSteps
-                    , secondState = nextSecondState
-                }
-                    ! nextCmd
+            ( { model
+                | firstList = nextFirst.list
+                , firstIndex = nextFirst.index
+                , firstSteps = nextFirst.steps
+                , firstState = nextFirst.state
+                , secondList = nextSecond.list
+                , secondIndex = nextSecond.index
+                , secondSteps = nextSecond.steps
+                , secondState = nextSecond.state
+              }
+            , Cmd.batch nextCmd
+            )
 
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstSteps ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondSteps ]
+        [ div [] [ text <| "Part 1: " ++ String.fromInt model.firstSteps ]
+        , div [] [ text <| "Part 2: " ++ String.fromInt model.secondSteps ]
         ]

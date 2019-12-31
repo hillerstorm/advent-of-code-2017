@@ -1,8 +1,9 @@
 module Day09.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day09.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
+import Html exposing (..)
 
 
 type alias Group =
@@ -33,9 +34,9 @@ type Msg
     | Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -43,79 +44,84 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
-parseGarbage : String -> String -> ( String, String )
+parseGarbage : String -> String -> Maybe ( String, String )
 parseGarbage garbage str =
     case String.uncons str of
         Just ( '!', xs ) ->
             case String.uncons xs of
-                Just ( _, xs ) ->
-                    parseGarbage garbage xs
+                Just ( _, xxs ) ->
+                    parseGarbage garbage xxs
 
                 Nothing ->
-                    Debug.crash "Invalid cancel"
+                    Nothing
 
         Just ( '>', xs ) ->
-            ( garbage, xs )
+            Just ( garbage, xs )
 
         Just ( x, xs ) ->
             parseGarbage (garbage ++ String.fromChar x) xs
 
         Nothing ->
-            Debug.crash "Invalid garbage"
+            Nothing
 
 
-parseGroup : List Thing -> String -> ( Group, String )
+parseGroup : List Thing -> String -> Maybe ( Group, String )
 parseGroup children str =
     case String.uncons str of
         Just ( ',', xs ) ->
             parseGroup children xs
 
         Just ( '}', xs ) ->
-            ( Group children, xs )
+            Just ( Group children, xs )
 
         Just ( '{', xs ) ->
-            let
-                ( grp, rest ) =
-                    parseGroup [] xs
-            in
-                parseGroup (children ++ [ Thing grp ]) rest
+            case parseGroup [] xs of
+                Just ( grp, rest ) ->
+                    parseGroup (children ++ [ Thing grp ]) rest
+
+                Nothing ->
+                    Nothing
 
         Just ( '<', xs ) ->
-            let
-                ( garbage, rest ) =
-                    parseGarbage "" xs
-            in
-                parseGroup (children ++ [ Garbage garbage ]) rest
+            case parseGarbage "" xs of
+                Just ( garbage, rest ) ->
+                    parseGroup (children ++ [ Garbage garbage ]) rest
+
+                Nothing ->
+                    Nothing
 
         _ ->
-            Debug.crash "Invalid group"
+            Nothing
 
 
-parse : String -> Input
+parse : String -> Maybe Input
 parse str =
     case String.uncons str of
         Just ( '{', xs ) ->
-            let
-                ( grp, rest ) =
-                    parseGroup [] xs
-            in
-                if String.isEmpty rest then
-                    Parsed grp
-                else
-                    Debug.crash "Invalid input"
+            case parseGroup [] xs of
+                Just ( grp, rest ) ->
+                    if String.isEmpty rest then
+                        Just (Parsed grp)
+
+                    else
+                        Nothing
+
+                Nothing ->
+                    Nothing
 
         _ ->
-            Debug.crash "Invalid input"
+            Nothing
 
 
 scoreThing : Int -> Thing -> Int
@@ -130,7 +136,7 @@ scoreThing score thing =
 
 getScore : Int -> List Thing -> Int
 getScore score =
-    ((+) score) << List.sum << List.map (scoreThing score)
+    (+) score << List.sum << List.map (scoreThing score)
 
 
 countGarbage : Thing -> Int
@@ -152,22 +158,33 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
-                | parsedInput = parse model.input
-            }
-                ! [ trigger NoDelay Run ]
+            case parse model.input of
+                Just parsedInput ->
+                    ( { model
+                        | parsedInput = parsedInput
+                      }
+                    , trigger NoDelay Run
+                    )
+
+                Nothing ->
+                    ( model
+                    , Cmd.none
+                    )
 
         Run ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! []
+                    ( model
+                    , Cmd.none
+                    )
 
                 Parsed grp ->
-                    { model
+                    ( { model
                         | firstPart = Just <| getScore 1 grp.children
                         , secondPart = Just <| garbageLength grp.children
-                    }
-                        ! []
+                      }
+                    , Cmd.none
+                    )
 
 
 view : Model -> Html msg

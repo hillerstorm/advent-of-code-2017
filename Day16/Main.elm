@@ -1,10 +1,11 @@
 module Day16.Main exposing (main)
 
-import Html exposing (..)
-import Day16.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe, unsafeToInt, mapTuple)
-import List.Extra
+import Browser
 import Char
+import Day16.Input exposing (rawInput)
+import Helpers.Helpers exposing (Delay(..), mapTuple, prettyMaybe, trigger, unsafeToInt)
+import Html exposing (..)
+import List.Extra
 
 
 type Move
@@ -27,9 +28,9 @@ type Msg
     | Dance
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -47,47 +48,49 @@ initPrograms =
     List.range 0 (numPrograms - 1) |> List.map (String.fromChar << Char.fromCode << (+) 97)
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , programs = initPrograms
-    , visited = [ String.concat initPrograms ]
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , programs = initPrograms
+      , visited = [ String.concat initPrograms ]
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
-parseMove : String -> Move
+parseMove : String -> Maybe Move
 parseMove str =
     case String.uncons str of
         Just ( 's', num ) ->
-            Spin <| unsafeToInt num
+            Just <| Spin <| unsafeToInt num
 
         Just ( 'x', ab ) ->
             case String.split "/" ab of
                 [ a, b ] ->
-                    Exchange (unsafeToInt a) (unsafeToInt b)
+                    Just <| Exchange (unsafeToInt a) (unsafeToInt b)
 
                 _ ->
-                    Debug.crash "Invalid exchange"
+                    Nothing
 
         Just ( 'p', ab ) ->
             case String.split "/" ab of
                 [ a, b ] ->
-                    Partner a b
+                    Just <| Partner a b
 
                 _ ->
-                    Debug.crash "Invalid partner"
+                    Nothing
 
         _ ->
-            Debug.crash "Invalid move"
+            Nothing
 
 
 nextMove : String -> ( Maybe Move, String )
 nextMove str =
     if String.isEmpty str then
         ( Nothing, str )
+
     else
         case String.indexes "," str of
             x :: _ ->
@@ -98,17 +101,26 @@ nextMove str =
                     right =
                         String.dropLeft (x + 1) str
                 in
-                    ( Just <| parseMove left, right )
+                case parseMove left of
+                    Just mov ->
+                        ( Just mov, right )
+
+                    Nothing ->
+                        ( Nothing, str )
 
             [] ->
-                ( Just <| parseMove str, "" )
+                case parseMove str of
+                    Just mov ->
+                        ( Just mov, "" )
+
+                    Nothing ->
+                        ( Nothing, str )
 
 
 exchange : List String -> Int -> Int -> List String
 exchange programs a b =
     programs
         |> List.Extra.swapAt a b
-        |> Maybe.withDefault programs
 
 
 dance : String -> List String -> List String
@@ -124,7 +136,7 @@ dance moves programs =
                         Spin x ->
                             programs
                                 |> List.Extra.splitAt (numPrograms - x)
-                                |> mapTuple (flip (++))
+                                |> mapTuple (\b a -> (++) a b)
 
                         Exchange a b ->
                             exchange programs a b
@@ -133,14 +145,16 @@ dance moves programs =
                             Maybe.map2 (exchange programs) (List.Extra.elemIndex a programs) (List.Extra.elemIndex b programs)
                                 |> Maybe.withDefault programs
             in
-                dance xs newPrograms
+            dance xs newPrograms
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            model ! [ trigger WithDelay Dance ]
+            ( model
+            , trigger WithDelay Dance
+            )
 
         Dance ->
             let
@@ -158,9 +172,10 @@ update msg model =
                     if List.member state model.visited then
                         let
                             idx =
-                                1000000000 % (List.length model.visited)
+                                modBy (List.length model.visited) 1000000000
                         in
-                            List.Extra.getAt idx model.visited
+                        List.Extra.getAt idx model.visited
+
                     else
                         model.secondPart
 
@@ -172,13 +187,14 @@ update msg model =
                         Nothing ->
                             [ trigger NoDelay Dance ]
             in
-                { model
-                    | programs = programs
-                    , visited = model.visited ++ [ state ]
-                    , firstPart = Just firstPart
-                    , secondPart = secondPart
-                }
-                    ! nextCmd
+            ( { model
+                | programs = programs
+                , visited = model.visited ++ [ state ]
+                , firstPart = Just firstPart
+                , secondPart = secondPart
+              }
+            , Cmd.batch nextCmd
+            )
 
 
 print : Maybe String -> String

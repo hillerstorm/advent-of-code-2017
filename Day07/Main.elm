@@ -1,8 +1,9 @@
 module Day07.Main exposing (main)
 
+import Browser
+import Day07.Input exposing (Input, Prgrm, parsedInput)
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
 import Html exposing (..)
-import Day07.Input exposing (parsedInput, Input, Prgrm)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
 import List.Extra
 
 
@@ -17,9 +18,9 @@ type Msg
     = Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -27,13 +28,14 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = parsedInput
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Run ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = parsedInput
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Run
+    )
 
 
 type alias Node =
@@ -58,12 +60,12 @@ findInvalid (Nodes nodes) =
             case List.partition ((==) totalWeight << .totalWeight) nodes of
                 ( [ a ], b :: _ ) ->
                     findInvalid a.nodes
-                        |> Maybe.withDefault (a.weight - ((a.totalWeight) - (b.totalWeight)))
+                        |> Maybe.withDefault (a.weight - (a.totalWeight - b.totalWeight))
                         |> Just
 
                 ( a :: _, [ b ] ) ->
                     findInvalid b.nodes
-                        |> Maybe.withDefault (b.weight - ((b.totalWeight) - (a.totalWeight)))
+                        |> Maybe.withDefault (b.weight - (b.totalWeight - a.totalWeight))
                         |> Just
 
                 _ ->
@@ -88,11 +90,11 @@ buildTree programs { name, weight, nodes } =
                 |> List.map .totalWeight
                 |> List.sum
     in
-        { name = name
-        , weight = weight
-        , totalWeight = weight + nodesWeight
-        , nodes = Nodes mappedNodes
-        }
+    { name = name
+    , weight = weight
+    , totalWeight = weight + nodesWeight
+    , nodes = Nodes mappedNodes
+    }
 
 
 isBottomNode : List Prgrm -> Prgrm -> Bool
@@ -114,16 +116,17 @@ update msg model =
                     bottomNode
                         |> Maybe.andThen (findInvalid << .nodes)
             in
-                { model
-                    | firstPart = bottomNode
-                    , secondPart = secondPart
-                }
-                    ! []
+            ( { model
+                | firstPart = bottomNode
+                , secondPart = secondPart
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html msg
 view model =
     div []
         [ div [] [ text <| "Part 1: " ++ (model.firstPart |> Maybe.map .name |> prettyMaybe) ]
-        , div [] [ text <| "Part 2: " ++ (prettyMaybe model.secondPart) ]
+        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
         ]

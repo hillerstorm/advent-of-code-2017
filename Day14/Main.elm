@@ -1,11 +1,12 @@
 module Day14.Main exposing (main)
 
-import Html exposing (..)
-import Day14.Input exposing (rawInput)
+import Browser
 import Day10.Main exposing (calcKnotHash)
-import Day12.Main exposing (getGroup, countGroups)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe, unsafeToInt, unique, unsafeGet)
-import Dict.LLRB as Dict
+import Day12.Main exposing (countGroups, getGroup)
+import Day14.Input exposing (rawInput)
+import Dict exposing (Dict)
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger, unique, unsafeGet, unsafeToInt)
+import Html exposing (..)
 import ParseInt
 import Set
 
@@ -21,9 +22,9 @@ type Msg
     = Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -31,30 +32,31 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Run ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Run
+    )
 
 
-hexToByte : String -> String
+hexToByte : String -> Maybe String
 hexToByte string =
     case ParseInt.parseIntHex string of
         Ok val ->
-            String.padLeft 4 '0' <| ParseInt.toRadixUnsafe 2 val
+            Just <| String.padLeft 4 '0' <| ParseInt.toRadixUnsafe 2 val
 
         Err _ ->
-            Debug.crash "Invalid hex"
+            Nothing
 
 
 getBits : String -> String
 getBits key =
     calcKnotHash key
         |> String.split ""
-        |> List.map hexToByte
+        |> List.filterMap hexToByte
         |> String.join ""
 
 
@@ -62,26 +64,27 @@ getAdjacent : Int -> List Int -> Set.Set Int
 getAdjacent idx cells =
     let
         x =
-            idx % 128
+            modBy 128 idx
 
         y =
             idx // 128
 
-        insertIfInCells cells ( x, y ) =
+        insertIfInCells c ( xx, yy ) =
             let
-                idx =
-                    x + 128 * y
+                i =
+                    xx + 128 * yy
             in
-                if x >= 0 && x < 128 && y >= 0 && y < 128 && List.member idx cells then
-                    Set.insert <| x + 128 * y
-                else
-                    identity
+            if xx >= 0 && xx < 128 && yy >= 0 && yy < 128 && List.member i c then
+                Set.insert <| xx + 128 * yy
+
+            else
+                identity
     in
-        Set.empty
-            |> insertIfInCells cells ( x - 1, y )
-            |> insertIfInCells cells ( x + 1, y )
-            |> insertIfInCells cells ( x, y - 1 )
-            |> insertIfInCells cells ( x, y + 1 )
+    Set.empty
+        |> insertIfInCells cells ( x - 1, y )
+        |> insertIfInCells cells ( x + 1, y )
+        |> insertIfInCells cells ( x, y - 1 )
+        |> insertIfInCells cells ( x, y + 1 )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -91,7 +94,7 @@ update msg model =
             let
                 cells =
                     List.range 0 127
-                        |> List.map (\i -> List.map unsafeToInt <| String.split "" <| getBits <| model.input ++ "-" ++ (toString i))
+                        |> List.map (\i -> List.filterMap String.toInt <| String.split "" <| getBits <| model.input ++ "-" ++ String.fromInt i)
                         |> List.concat
 
                 usedCells =
@@ -99,8 +102,8 @@ update msg model =
 
                 indexed =
                     cells
-                        |> List.indexedMap (,)
-                        |> List.filter (((==) 1) << Tuple.second)
+                        |> List.indexedMap (\a b -> ( a, b ))
+                        |> List.filter ((==) 1 << Tuple.second)
                         |> List.map Tuple.first
 
                 dict =
@@ -111,7 +114,7 @@ update msg model =
                 firstGroup =
                     case indexed of
                         [] ->
-                            Debug.crash "Invalid case"
+                            Set.empty
 
                         x :: _ ->
                             getGroup (unsafeGet x dict) dict <| Set.singleton x
@@ -119,11 +122,12 @@ update msg model =
                 totalGroups =
                     countGroups firstGroup dict 1
             in
-                { model
-                    | firstPart = Just usedCells
-                    , secondPart = Just totalGroups
-                }
-                    ! []
+            ( { model
+                | firstPart = Just usedCells
+                , secondPart = Just totalGroups
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html msg

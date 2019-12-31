@@ -1,16 +1,17 @@
 module Day21.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day21.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), unique, count, unsafeGet)
+import Dict exposing (Dict)
+import Helpers.Helpers exposing (Delay(..), count, flip, trigger, unique, unsafeGet)
+import Html exposing (..)
 import List.Extra
 import String.Extra
-import Dict.LLRB as Dict
 
 
 getUnsafe : Dict.Dict comparable v -> comparable -> v
 getUnsafe =
-    flip unsafeGet
+    \b a -> unsafeGet a b
 
 
 type Input
@@ -33,9 +34,9 @@ type Msg
     | Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -43,17 +44,18 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , state =
-        ".#./..#/###" |> splitPattern |> String.fromList
-    , iterations = 0
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , state =
+            ".#./..#/###" |> splitPattern |> String.fromList
+      , iterations = 0
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
 isValidChar : Char -> Bool
@@ -66,7 +68,7 @@ splitPattern =
     String.toList << String.filter isValidChar
 
 
-parseRules : String -> Dict.Dict String (List String) -> Dict.Dict String (List String)
+parseRules : String -> Dict String (List String) -> Dict String (List String)
 parseRules str rules =
     case String.words str of
         [ pattern, "=>", replacement ] ->
@@ -78,7 +80,7 @@ parseRules str rules =
                             , h :: i :: [ j ]
                             , k :: l :: [ m ]
                             ]
-                                |> List.map (String.fromList)
+                                |> List.map String.fromList
 
                         patterns =
                             [ a :: b :: c :: [ d ]
@@ -91,12 +93,12 @@ parseRules str rules =
                             , d :: b :: c :: [ a ]
                             ]
                                 |> unique
-                                |> List.map (String.fromList)
+                                |> List.map String.fromList
                     in
-                        patterns
-                            |> List.map ((flip (,)) repl)
-                            |> Dict.fromList
-                            |> Dict.union rules
+                    patterns
+                        |> List.map (\xx -> ( xx, repl ))
+                        |> Dict.fromList
+                        |> Dict.union rules
 
                 ( [ a, b, c, d, e, f, g, h, i ], [ j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y ] ) ->
                     let
@@ -106,7 +108,7 @@ parseRules str rules =
                             , r :: s :: t :: [ u ]
                             , v :: w :: x :: [ y ]
                             ]
-                                |> List.map (String.fromList)
+                                |> List.map String.fromList
 
                         patterns =
                             [ a :: b :: c :: d :: e :: f :: g :: h :: [ i ]
@@ -119,33 +121,23 @@ parseRules str rules =
                             , i :: f :: c :: h :: e :: b :: g :: d :: [ a ]
                             ]
                                 |> unique
-                                |> List.map (String.fromList)
+                                |> List.map String.fromList
                     in
-                        patterns
-                            |> List.map ((flip (,)) repl)
-                            |> Dict.fromList
-                            |> Dict.union rules
+                    patterns
+                        |> List.map (\xx -> ( xx, repl ))
+                        |> Dict.fromList
+                        |> Dict.union rules
 
                 _ ->
-                    Debug.crash "Invalid rule"
+                    rules
 
         _ ->
-            Debug.crash "Invalid rule"
+            rules
 
 
 parse : String -> Input
 parse =
     Parsed << List.foldl parseRules Dict.empty << String.lines
-
-
-unsafeHead : List a -> a
-unsafeHead xs =
-    case List.head xs of
-        Just x ->
-            x
-
-        Nothing ->
-            Debug.crash "Empty list"
 
 
 mapWith : List String -> Int -> Int -> Int -> String
@@ -155,22 +147,26 @@ mapWith list width cols i =
             List.drop i list
 
         a =
-            unsafeHead dropped
+            List.head dropped
+                |> Maybe.withDefault ""
 
         b =
             dropped
                 |> List.drop cols
-                |> unsafeHead
+                |> List.head
+                |> Maybe.withDefault ""
 
         c =
             if width == 3 then
                 dropped
                     |> List.drop (cols + cols)
-                    |> unsafeHead
+                    |> List.head
+                    |> Maybe.withDefault ""
+
             else
                 ""
     in
-        a ++ b ++ c
+    a ++ b ++ c
 
 
 pack : Dict.Dict String (List String) -> List Int -> Int -> Int -> Int -> List (List String) -> Int -> List String -> String
@@ -185,9 +181,10 @@ pack rules colRange num width cols result len list =
             newLen =
                 len + cols
         in
-            list
-                |> List.drop (cols * width)
-                |> pack rules colRange num width cols newResult newLen
+        list
+            |> List.drop (cols * width)
+            |> pack rules colRange num width cols newResult newLen
+
     else
         result
             |> List.Extra.groupsOf cols
@@ -201,15 +198,18 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
+            ( { model
                 | parsedInput = parse model.input
-            }
-                ! [ trigger WithDelay Run ]
+              }
+            , trigger WithDelay Run
+            )
 
         Run ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed rules ->
                     let
@@ -217,8 +217,9 @@ update msg model =
                             String.length model.state
 
                         width =
-                            if len % 2 == 0 then
+                            if modBy 2 len == 0 then
                                 2
+
                             else
                                 3
 
@@ -245,12 +246,14 @@ update msg model =
                         firstPart =
                             if iterations == 5 then
                                 Just <| String.Extra.countOccurrences "#" state
+
                             else
                                 model.firstPart
 
                         secondPart =
                             if iterations == 18 then
                                 Just <| String.Extra.countOccurrences "#" state
+
                             else
                                 model.secondPart
 
@@ -262,18 +265,19 @@ update msg model =
                                 Nothing ->
                                     [ trigger (DelayWithMs 1) Run ]
                     in
-                        { model
-                            | state = state
-                            , iterations = iterations
-                            , firstPart = firstPart
-                            , secondPart = secondPart
-                        }
-                            ! nextCmd
+                    ( { model
+                        | state = state
+                        , iterations = iterations
+                        , firstPart = firstPart
+                        , secondPart = secondPart
+                      }
+                    , Cmd.batch nextCmd
+                    )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

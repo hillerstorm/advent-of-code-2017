@@ -1,8 +1,9 @@
 module Template.Main exposing (main)
 
+import Browser
+import Helpers.Helpers exposing (Delay(..), trigger)
 import Html exposing (..)
 import Template.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
 
 
 type Input
@@ -23,9 +24,9 @@ type Msg
     | Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -33,14 +34,15 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger WithDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger WithDelay Parse
+    )
 
 
 parse : String -> Input
@@ -52,23 +54,28 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
+            ( { model
                 | parsedInput = parse model.input
-            }
-                ! [ trigger WithDelay Run ]
+              }
+            , trigger WithDelay Run
+            )
 
         Run ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed string ->
-                    model ! []
+                    ( model
+                    , Cmd.none
+                    )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

@@ -31,4 +31,4 @@ parse input =
     input
         |> String.lines
         |> List.map String.words
-        |> List.map (List.filterMap (Result.toMaybe << String.toInt))
+        |> List.map (List.filterMap String.toInt)

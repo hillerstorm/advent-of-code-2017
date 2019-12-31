@@ -1,9 +1,10 @@
 module Day01.Main exposing (main)
 
-import Html exposing (..)
-import Day01.Input exposing (parsedInput, ParseResult(..))
-import Helpers.Helpers exposing (trigger, Delay(..))
 import Array exposing (..)
+import Browser
+import Day01.Input exposing (ParseResult(..), parsedInput)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (..)
 
 
 type alias Model =
@@ -20,20 +21,20 @@ type Msg
     = NextNumber
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
-        , subscriptions = \_ -> Sub.none
         , view = view
+        , subscriptions = \_ -> Sub.none
         }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : () -> ( Model, Cmd Msg )
+init _ =
     let
-        ( numbers, totalCount, secondStep ) =
+        ( nums, totalCount, secondStep ) =
             case parsedInput of
                 Invalid ->
                     ( Array.empty, 0, 0 )
@@ -41,20 +42,22 @@ init =
                 Valid { numbers, total } ->
                     ( numbers, total, total // 2 )
     in
-        { numbers = numbers
-        , totalCount = totalCount
-        , secondStep = secondStep
-        , index = 0
-        , firstSum = 0
-        , secondSum = 0
-        }
-            ! [ trigger NoDelay NextNumber ]
+    ( { numbers = nums
+      , totalCount = totalCount
+      , secondStep = secondStep
+      , index = 0
+      , firstSum = 0
+      , secondSum = 0
+      }
+    , trigger NoDelay NextNumber
+    )
 
 
 compareWith : a -> a -> Maybe a
 compareWith x y =
     if x == y then
         Just x
+
     else
         Nothing
 
@@ -78,31 +81,34 @@ update msg model =
                             compareWith x
 
                         firstIndex =
-                            newIndex % model.totalCount
+                            modBy model.totalCount newIndex
 
                         firstSum =
                             tryGetSum firstIndex compareWithX model.numbers
 
                         secondIndex =
-                            (model.index + model.secondStep) % model.totalCount
+                            modBy model.totalCount (model.index + model.secondStep)
 
                         secondSum =
                             tryGetSum secondIndex compareWithX model.numbers
                     in
-                        { model
-                            | index = newIndex
-                            , firstSum = model.firstSum + firstSum
-                            , secondSum = model.secondSum + secondSum
-                        }
-                            ! [ trigger NoDelay NextNumber ]
+                    ( { model
+                        | index = newIndex
+                        , firstSum = model.firstSum + firstSum
+                        , secondSum = model.secondSum + secondSum
+                      }
+                    , trigger NoDelay NextNumber
+                    )
 
                 Nothing ->
-                    model ! []
+                    ( model
+                    , Cmd.none
+                    )
 
 
-view : Model -> Html msg
+view : Model -> Html Msg
 view model =
     div []
-        [ div [] [ text ("Part 1: " ++ (toString model.firstSum)) ]
-        , div [] [ text ("Part 2: " ++ (toString model.secondSum)) ]
+        [ div [] [ text ("Part 1: " ++ String.fromInt model.firstSum) ]
+        , div [] [ text ("Part 2: " ++ String.fromInt model.secondSum) ]
         ]

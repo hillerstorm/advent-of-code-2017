@@ -1,21 +1,20 @@
-module Helpers.Helpers
-    exposing
-        ( trigger
-        , Delay(..)
-        , count
-        , unique
-        , prettyMaybe
-        , unsafeGet
-        , unsafeToInt
-        , mapTuple
-        , sortDesc
-        )
+module Helpers.Helpers exposing
+    ( Delay(..)
+    , count
+    , flip
+    , mapTuple
+    , prettyMaybe
+    , sortDesc
+    , trigger
+    , unique
+    , unsafeGet
+    , unsafeToInt
+    )
 
-import Task exposing (..)
+import Dict exposing (Dict)
 import Process exposing (sleep)
-import Time exposing (millisecond)
 import Set
-import Dict.LLRB as Dict
+import Task exposing (..)
 
 
 type Delay
@@ -24,14 +23,19 @@ type Delay
     | DelayWithMs Float
 
 
+flip : (a -> b -> c) -> b -> a -> c
+flip fn b a =
+    fn a b
+
+
 trigger : Delay -> msg -> Cmd msg
 trigger delay msg =
     case delay of
         WithDelay ->
-            Process.sleep (5 * millisecond) |> Task.perform (\_ -> msg)
+            Process.sleep 5 |> Task.perform (\_ -> msg)
 
         DelayWithMs d ->
-            Process.sleep (d * millisecond) |> Task.perform (\_ -> msg)
+            Process.sleep d |> Task.perform (\_ -> msg)
 
         NoDelay ->
             Task.perform identity <| Task.succeed msg
@@ -51,30 +55,30 @@ prettyMaybe : Maybe a -> String
 prettyMaybe aMaybe =
     case aMaybe of
         Just x ->
-            toString x
+            Debug.toString x
 
         Nothing ->
-            toString aMaybe
+            Debug.toString aMaybe
 
 
-unsafeGet : comparable -> Dict.Dict comparable v -> v
+unsafeGet : comparable -> Dict comparable v -> v
 unsafeGet key dict =
     case Dict.get key dict of
         Just x ->
             x
 
         Nothing ->
-            Debug.crash "Key not found..."
+            Debug.todo "Key not found..."
 
 
 unsafeToInt : String -> Int
 unsafeToInt str =
     case String.toInt str of
-        Ok val ->
+        Just val ->
             val
 
-        Err _ ->
-            Debug.crash "Invalid number"
+        Nothing ->
+            Debug.todo "Invalid number"
 
 
 mapTuple : (a -> b -> c) -> ( a, b ) -> c

@@ -1,9 +1,10 @@
 module Day19.Main exposing (main)
 
-import Html exposing (..)
-import Day19.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
+import Browser
 import Char
+import Day19.Input exposing (rawInput)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (..)
 import List.Extra
 
 
@@ -47,9 +48,9 @@ type Msg
     | Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -57,19 +58,20 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , direction = Down
-    , pos = ( 0, 0 )
-    , letters = ""
-    , lastChar = '|'
-    , steps = 0
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , direction = Down
+      , pos = ( 0, 0 )
+      , letters = ""
+      , lastChar = '|'
+      , steps = 0
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
 parse : String -> ( Int, List Char )
@@ -90,13 +92,22 @@ parse input =
                 |> String.concat
                 |> String.toList
     in
-        ( width, padded )
+    ( width, padded )
 
 
-getDirection : String -> Int -> Direction -> Int -> Int -> Direction
+type alias NextDirectionValues =
+    { idx1 : Int
+    , idx2 : Int
+    , chr : Char
+    , first : Direction
+    , second : Direction
+    }
+
+
+getDirection : String -> Int -> Direction -> Int -> Int -> Maybe Direction
 getDirection grid width direction x y =
     let
-        ( idx1, idx2, chr, first, second ) =
+        nextDirValues =
             if direction == Up || direction == Down then
                 let
                     idx1 =
@@ -105,7 +116,8 @@ getDirection grid width direction x y =
                     idx2 =
                         (x + 1) + width * y
                 in
-                    ( idx1, idx2, '-', Left, Right )
+                NextDirectionValues idx1 idx2 '-' Left Right
+
             else
                 let
                     idx1 =
@@ -114,26 +126,38 @@ getDirection grid width direction x y =
                     idx2 =
                         x + width * (y + 1)
                 in
-                    ( idx1, idx2, '|', Up, Down )
+                NextDirectionValues idx1 idx2 '|' Up Down
+
+        aVal =
+            String.dropLeft nextDirValues.idx1 grid
+                |> String.uncons
+                |> Maybe.map Tuple.first
+
+        bVal =
+            String.dropLeft nextDirValues.idx2 grid
+                |> String.uncons
+                |> Maybe.map Tuple.first
     in
-        case ( String.dropLeft idx1 grid |> String.uncons, String.dropLeft idx2 grid |> String.uncons ) of
-            ( Just ( a, _ ), Just ( b, _ ) ) ->
-                let
-                    aCode =
-                        Char.toCode a
+    case ( aVal, bVal ) of
+        ( Just a, Just b ) ->
+            let
+                aCode =
+                    Char.toCode a
 
-                    bCode =
-                        Char.toCode b
-                in
-                    if a == chr || a == '+' || (aCode >= 65 && aCode <= 90) then
-                        first
-                    else if b == chr || b == '+' || (bCode >= 65 && bCode <= 90) then
-                        second
-                    else
-                        Debug.crash "Invalid direction"
+                bCode =
+                    Char.toCode b
+            in
+            if a == nextDirValues.chr || a == '+' || (aCode >= 65 && aCode <= 90) then
+                Just nextDirValues.first
 
-            _ ->
-                Debug.crash "Invalid direction"
+            else if b == nextDirValues.chr || b == '+' || (bCode >= 65 && bCode <= 90) then
+                Just nextDirValues.second
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -149,25 +173,28 @@ update msg model =
                         |> List.take width
                         |> List.Extra.elemIndex '|'
             in
-                case index of
-                    Just idx ->
-                        { model
-                            | parsedInput =
-                                Parsed
-                                    { grid = String.fromList parsedInput
-                                    , width = width
-                                    }
-                            , pos = ( idx, 0 )
-                        }
-                            ! [ trigger WithDelay Run ]
+            case index of
+                Just idx ->
+                    ( { model
+                        | parsedInput =
+                            Parsed
+                                { grid = String.fromList parsedInput
+                                , width = width
+                                }
+                        , pos = ( idx, 0 )
+                      }
+                    , trigger WithDelay Run
+                    )
 
-                    Nothing ->
-                        Debug.crash "Invalid input"
+                Nothing ->
+                    ( model, Cmd.none )
 
         Run ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed { grid, width } ->
                     let
@@ -192,31 +219,33 @@ update msg model =
                             newX + width * newY
 
                         lastChar =
-                            case String.dropLeft index grid |> String.uncons of
-                                Just ( char, _ ) ->
-                                    char
-
-                                Nothing ->
-                                    Debug.crash "Invalid move"
+                            String.dropLeft index grid
+                                |> String.uncons
+                                |> Maybe.map Tuple.first
+                                |> Maybe.withDefault model.lastChar
 
                         lastCharCode =
                             Char.toCode lastChar
 
                         letters =
                             if lastCharCode >= 65 && lastCharCode <= 90 then
-                                model.letters ++ (String.fromChar lastChar)
+                                model.letters ++ String.fromChar lastChar
+
                             else
                                 model.letters
 
                         direction =
                             if lastChar == '+' then
                                 getDirection grid width model.direction newX newY
+                                    |> Maybe.withDefault model.direction
+
                             else
                                 model.direction
 
                         firstPart =
                             if lastChar == ' ' then
                                 Just letters
+
                             else
                                 Nothing
 
@@ -234,21 +263,22 @@ update msg model =
                                 Nothing ->
                                     [ trigger (DelayWithMs 0) Run ]
                     in
-                        { model
-                            | direction = direction
-                            , letters = letters
-                            , lastChar = lastChar
-                            , pos = ( newX, newY )
-                            , steps = steps
-                            , firstPart = firstPart
-                            , secondPart = secondPart
-                        }
-                            ! nextCmd
+                    ( { model
+                        | direction = direction
+                        , letters = letters
+                        , lastChar = lastChar
+                        , pos = ( newX, newY )
+                        , steps = steps
+                        , firstPart = firstPart
+                        , secondPart = secondPart
+                      }
+                    , Cmd.batch nextCmd
+                    )
 
 
 print : Maybe a -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map Debug.toString
 
 
 view : Model -> Html msg

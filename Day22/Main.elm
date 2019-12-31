@@ -1,9 +1,10 @@
 module Day22.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day22.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
-import Dict.LLRB as Dict
+import Dict exposing (Dict)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (..)
 
 
 type Infection
@@ -43,9 +44,9 @@ type Msg
     | RunSecond
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -53,38 +54,39 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger WithDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger WithDelay Parse
+    )
 
 
-mapChar : Char -> Infection
+mapChar : Char -> Maybe Infection
 mapChar chr =
     case chr of
         '.' ->
-            Clean
+            Just Clean
 
         '#' ->
-            Infected
+            Just Infected
 
         'W' ->
-            Weakened
+            Just Weakened
 
         'F' ->
-            Flagged
+            Just Flagged
 
         _ ->
-            Debug.crash "Invalid"
+            Nothing
 
 
 mapWithCoords : Int -> String -> List ( Position, Infection )
 mapWithCoords y =
-    List.indexedMap (\x chr -> ( ( x, negate y ), mapChar chr )) << String.toList
+    List.indexedMap (\x chr -> ( ( x, negate y ), chr )) << List.filterMap mapChar << String.toList
 
 
 parse : String -> ( Position, Dict.Dict Position Infection )
@@ -105,7 +107,7 @@ parse input =
                 |> List.map Tuple.first
                 |> List.maximum
                 |> Maybe.withDefault 0
-                |> (flip (//)) 2
+                |> (\b a -> (//) a b) 2
 
         y =
             keys
@@ -113,10 +115,10 @@ parse input =
                 |> List.minimum
                 |> Maybe.withDefault 0
                 |> toFloat
-                |> (flip (/)) 2
+                |> (\b a -> (/) a b) 2
                 |> ceiling
     in
-        ( ( x, y ), result )
+    ( ( x, y ), result )
 
 
 turnLeft : Direction -> Direction
@@ -187,6 +189,7 @@ runFirst : Dict.Dict Position Infection -> Position -> Direction -> Int -> Int -
 runFirst grid position direction infections iterations =
     if iterations == 10000 then
         infections
+
     else
         let
             node =
@@ -207,13 +210,14 @@ runFirst grid position direction infections iterations =
             newGrid =
                 Dict.insert position newState grid
         in
-            runFirst newGrid newPosition newDirection newInfections <| iterations + 1
+        runFirst newGrid newPosition newDirection newInfections <| iterations + 1
 
 
 runSecond : Dict.Dict Position Infection -> Position -> Direction -> Int -> Int -> Int
 runSecond grid position direction infections iterations =
     if iterations == 10000000 then
         infections
+
     else
         let
             node =
@@ -240,7 +244,7 @@ runSecond grid position direction infections iterations =
             newGrid =
                 Dict.insert position newState grid
         in
-            runSecond newGrid newPosition newDirection newInfections <| iterations + 1
+        runSecond newGrid newPosition newDirection newInfections <| iterations + 1
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -251,37 +255,44 @@ update msg model =
                 ( position, parsedInput ) =
                     parse model.input
             in
-                { model
-                    | parsedInput = Parsed ( position, parsedInput )
-                }
-                    ! [ trigger WithDelay RunFirst ]
+            ( { model
+                | parsedInput = Parsed ( position, parsedInput )
+              }
+            , trigger WithDelay RunFirst
+            )
 
         RunFirst ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed ( position, grid ) ->
-                    { model
+                    ( { model
                         | firstPart = Just <| runFirst grid position Up 0 0
-                    }
-                        ! [ trigger WithDelay RunSecond ]
+                      }
+                    , trigger WithDelay RunSecond
+                    )
 
         RunSecond ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed ( position, grid ) ->
-                    { model
+                    ( { model
                         | secondPart = Just <| runSecond grid position Up 0 0
-                    }
-                        ! []
+                      }
+                    , Cmd.none
+                    )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

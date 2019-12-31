@@ -1,7 +1,8 @@
 module Day17.Main exposing (main)
 
+import Browser
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
 import Html exposing (..)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe)
 import List.Extra
 
 
@@ -24,9 +25,9 @@ type Msg
     | Second
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -34,34 +35,37 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = input
-    , state = []
-    , index = 0
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay First ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = input
+      , state = []
+      , index = 0
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay First
+    )
 
 
 findSecondPart : Int -> Int -> Int -> Int -> Int -> Int
-findSecondPart input index next len i =
+findSecondPart inp index next len i =
     if i < 50000000 then
         let
             nextIndex =
-                ((input + index) % len) + 1
+                modBy len (input + index) + 1
 
             newNext =
                 if nextIndex == 1 then
                     i
+
                 else
                     next
 
             nextLen =
                 len + 1
         in
-            findSecondPart input nextIndex newNext nextLen <| i + 1
+        findSecondPart inp nextIndex newNext nextLen <| i + 1
+
     else
         next
 
@@ -77,8 +81,9 @@ update msg model =
                 idx =
                     if len == 0 then
                         0
+
                     else
-                        (model.index + model.input) % len
+                        modBy len (model.index + model.input)
 
                 ( l, r ) =
                     List.Extra.splitAt (idx + 1) model.state
@@ -89,6 +94,7 @@ update msg model =
                 newIndex =
                     if len == 0 then
                         idx
+
                     else
                         idx + 1
 
@@ -100,6 +106,7 @@ update msg model =
 
                             Nothing ->
                                 List.head l
+
                     else
                         Nothing
 
@@ -111,27 +118,29 @@ update msg model =
                         Nothing ->
                             [ trigger NoDelay First ]
             in
-                { model
-                    | state = newState
-                    , index = newIndex
-                    , firstPart = firstPart
-                }
-                    ! nextCmd
+            ( { model
+                | state = newState
+                , index = newIndex
+                , firstPart = firstPart
+              }
+            , Cmd.batch nextCmd
+            )
 
         Second ->
             let
                 secondPart =
                     findSecondPart model.input 0 0 1 1
             in
-                { model
-                    | secondPart = Just secondPart
-                }
-                    ! []
+            ( { model
+                | secondPart = Just secondPart
+              }
+            , Cmd.none
+            )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

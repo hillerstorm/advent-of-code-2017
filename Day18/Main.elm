@@ -1,9 +1,10 @@
 module Day18.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day18.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
-import Dict.LLRB as Dict
+import Dict exposing (Dict)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (..)
 
 
 type alias Register =
@@ -66,9 +67,9 @@ type Msg
     | RunSecond
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -76,59 +77,60 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , first =
-        { registers = Dict.empty
-        , index = 0
-        , lastPlayed = 0
-        , result = Nothing
-        }
-    , second = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , first =
+            { registers = Dict.empty
+            , index = 0
+            , lastPlayed = 0
+            , result = Nothing
+            }
+      , second = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
 mapRegOrVal : String -> RegOrVal
 mapRegOrVal str =
     String.toInt str
-        |> Result.map Value
-        |> Result.withDefault (Reg str)
+        |> Maybe.map Value
+        |> Maybe.withDefault (Reg str)
 
 
-parseInstruction : String -> Instruction
+parseInstruction : String -> Maybe Instruction
 parseInstruction str =
     case String.words str of
         [ "snd", x ] ->
-            Snd <| mapRegOrVal x
+            Just <| Snd <| mapRegOrVal x
 
         [ "set", x, y ] ->
-            Set x <| mapRegOrVal y
+            Just <| Set x <| mapRegOrVal y
 
         [ "add", x, y ] ->
-            Add x <| mapRegOrVal y
+            Just <| Add x <| mapRegOrVal y
 
         [ "mul", x, y ] ->
-            Mul x <| mapRegOrVal y
+            Just <| Mul x <| mapRegOrVal y
 
         [ "mod", x, y ] ->
-            Mod x <| mapRegOrVal y
+            Just <| Mod x <| mapRegOrVal y
 
         [ "rcv", x ] ->
-            Rcv x
+            Just <| Rcv x
 
         [ "jgz", x, y ] ->
-            Jgz (mapRegOrVal x) (mapRegOrVal y)
+            Just <| Jgz (mapRegOrVal x) (mapRegOrVal y)
 
         _ ->
-            Debug.crash "Invalid instruction"
+            Nothing
 
 
 parse : String -> List Instruction
 parse =
-    List.map parseInstruction << String.lines
+    List.filterMap parseInstruction << String.lines
 
 
 getValue : Dict.Dict Register Int -> RegOrVal -> Int
@@ -142,7 +144,7 @@ getValue registers x =
             v
 
 
-nextFirst : FirstPart -> Instruction -> ( Int, Int, Dict.Dict String Int, Maybe Int )
+nextFirst : FirstPart -> Instruction -> FirstPart
 nextFirst first inst =
     case inst of
         Snd x ->
@@ -150,7 +152,7 @@ nextFirst first inst =
                 lastPlayed =
                     getValue first.registers x
             in
-                ( lastPlayed, first.index + 1, first.registers, Nothing )
+            FirstPart first.registers (first.index + 1) lastPlayed Nothing
 
         Set x y ->
             let
@@ -160,7 +162,7 @@ nextFirst first inst =
                 registers =
                     Dict.update x (always <| Just value) first.registers
             in
-                ( first.lastPlayed, first.index + 1, registers, Nothing )
+            FirstPart registers (first.index + 1) first.lastPlayed Nothing
 
         Add x y ->
             let
@@ -168,9 +170,9 @@ nextFirst first inst =
                     getValue first.registers y
 
                 registers =
-                    Dict.update x (Just << ((+) value) << Maybe.withDefault 0) first.registers
+                    Dict.update x (Just << (+) value << Maybe.withDefault 0) first.registers
             in
-                ( first.lastPlayed, first.index + 1, registers, Nothing )
+            FirstPart registers (first.index + 1) first.lastPlayed Nothing
 
         Mul x y ->
             let
@@ -178,9 +180,9 @@ nextFirst first inst =
                     getValue first.registers y
 
                 registers =
-                    Dict.update x (Just << ((*) value) << Maybe.withDefault 0) first.registers
+                    Dict.update x (Just << (*) value << Maybe.withDefault 0) first.registers
             in
-                ( first.lastPlayed, first.index + 1, registers, Nothing )
+            FirstPart registers (first.index + 1) first.lastPlayed Nothing
 
         Mod x y ->
             let
@@ -188,9 +190,9 @@ nextFirst first inst =
                     getValue first.registers y
 
                 registers =
-                    Dict.update x (Just << ((flip (%)) value) << Maybe.withDefault 0) first.registers
+                    Dict.update x (Just << (\b a -> (\dividend modulus -> modBy modulus dividend) a b) value << Maybe.withDefault 0) first.registers
             in
-                ( first.lastPlayed, first.index + 1, registers, Nothing )
+            FirstPart registers (first.index + 1) first.lastPlayed Nothing
 
         Rcv x ->
             let
@@ -201,10 +203,11 @@ nextFirst first inst =
                 recovered =
                     if value > 0 then
                         Just first.lastPlayed
+
                     else
                         Nothing
             in
-                ( first.lastPlayed, first.index + 1, first.registers, recovered )
+            FirstPart first.registers (first.index + 1) first.lastPlayed recovered
 
         Jgz x y ->
             let
@@ -217,13 +220,23 @@ nextFirst first inst =
                 index =
                     if value > 0 then
                         first.index + offset
+
                     else
                         first.index + 1
             in
-                ( first.lastPlayed, index, first.registers, Nothing )
+            FirstPart first.registers index first.lastPlayed Nothing
 
 
-nextSecond : Prgrm -> Instruction -> Int -> ( Dict.Dict String Int, Int, List Int, Maybe Int, State )
+type alias NextProgramValues =
+    { registers : Dict String Int
+    , index : Int
+    , queue : List Int
+    , sent : Maybe Int
+    , state : State
+    }
+
+
+nextSecond : Prgrm -> Instruction -> Int -> NextProgramValues
 nextSecond program inst listLength =
     case inst of
         Snd x ->
@@ -237,10 +250,11 @@ nextSecond program inst listLength =
                 state =
                     if index >= listLength then
                         Terminated
+
                     else
                         Running
             in
-                ( program.registers, index, program.queue, Just sent, state )
+            NextProgramValues program.registers index program.queue (Just sent) state
 
         Set x y ->
             let
@@ -256,10 +270,11 @@ nextSecond program inst listLength =
                 state =
                     if index >= listLength then
                         Terminated
+
                     else
                         Running
             in
-                ( registers, index, program.queue, Nothing, state )
+            NextProgramValues registers index program.queue Nothing state
 
         Add x y ->
             let
@@ -267,7 +282,7 @@ nextSecond program inst listLength =
                     getValue program.registers y
 
                 registers =
-                    Dict.update x (Just << ((+) value) << Maybe.withDefault 0) program.registers
+                    Dict.update x (Just << (+) value << Maybe.withDefault 0) program.registers
 
                 index =
                     program.index + 1
@@ -275,10 +290,11 @@ nextSecond program inst listLength =
                 state =
                     if index >= listLength then
                         Terminated
+
                     else
                         Running
             in
-                ( registers, index, program.queue, Nothing, state )
+            NextProgramValues registers index program.queue Nothing state
 
         Mul x y ->
             let
@@ -286,7 +302,7 @@ nextSecond program inst listLength =
                     getValue program.registers y
 
                 registers =
-                    Dict.update x (Just << ((*) value) << Maybe.withDefault 0) program.registers
+                    Dict.update x (Just << (*) value << Maybe.withDefault 0) program.registers
 
                 index =
                     program.index + 1
@@ -294,10 +310,11 @@ nextSecond program inst listLength =
                 state =
                     if index >= listLength then
                         Terminated
+
                     else
                         Running
             in
-                ( registers, index, program.queue, Nothing, state )
+            NextProgramValues registers index program.queue Nothing state
 
         Mod x y ->
             let
@@ -305,7 +322,7 @@ nextSecond program inst listLength =
                     getValue program.registers y
 
                 registers =
-                    Dict.update x (Just << ((flip (%)) value) << Maybe.withDefault 0) program.registers
+                    Dict.update x (Just << (\b a -> (\dividend modulus -> modBy modulus dividend) a b) value << Maybe.withDefault 0) program.registers
 
                 index =
                     program.index + 1
@@ -313,10 +330,11 @@ nextSecond program inst listLength =
                 state =
                     if index >= listLength then
                         Terminated
+
                     else
                         Running
             in
-                ( registers, index, program.queue, Nothing, state )
+            NextProgramValues registers index program.queue Nothing state
 
         Rcv x ->
             case program.queue of
@@ -331,13 +349,14 @@ nextSecond program inst listLength =
                         state =
                             if index >= listLength then
                                 Terminated
+
                             else
                                 Running
                     in
-                        ( registers, index, xs, Nothing, state )
+                    NextProgramValues registers index xs Nothing state
 
                 [] ->
-                    ( program.registers, program.index, program.queue, Nothing, Waiting )
+                    NextProgramValues program.registers program.index program.queue Nothing Waiting
 
         Jgz x y ->
             let
@@ -350,25 +369,27 @@ nextSecond program inst listLength =
                 index =
                     if value > 0 then
                         program.index + offset
+
                     else
                         program.index + 1
 
                 state =
                     if index >= listLength then
                         Terminated
+
                     else
                         Running
             in
-                ( program.registers, index, program.queue, Nothing, state )
+            NextProgramValues program.registers index program.queue Nothing state
 
 
 runSecond : Prgrm -> Prgrm -> Int -> List Instruction -> Int -> Int
 runSecond a b sent instructions listLength =
     let
-        ( aRegisters, aIndex, aQueue, aSent, aState ) =
+        aValues =
             case a.state of
                 Terminated ->
-                    ( a.registers, a.index, a.queue, Nothing, a.state )
+                    NextProgramValues a.registers a.index a.queue Nothing a.state
 
                 _ ->
                     case List.drop a.index instructions |> List.head of
@@ -376,12 +397,12 @@ runSecond a b sent instructions listLength =
                             nextSecond a inst listLength
 
                         Nothing ->
-                            ( a.registers, a.index, a.queue, Nothing, Terminated )
+                            NextProgramValues a.registers a.index a.queue Nothing Terminated
 
-        ( bRegisters, bIndex, bQueue, bSent, bState ) =
+        bValues =
             case b.state of
                 Terminated ->
-                    ( b.registers, b.index, b.queue, Nothing, b.state )
+                    NextProgramValues b.registers b.index b.queue Nothing b.state
 
                 _ ->
                     case List.drop b.index instructions |> List.head of
@@ -389,46 +410,46 @@ runSecond a b sent instructions listLength =
                             nextSecond b inst listLength
 
                         Nothing ->
-                            ( b.registers, b.index, b.queue, Nothing, Terminated )
+                            NextProgramValues b.registers b.index b.queue Nothing Terminated
 
         aQ =
-            case ( bSent, aState ) of
+            case ( bValues.sent, aValues.state ) of
                 ( Just val, Running ) ->
-                    aQueue ++ [ val ]
+                    aValues.queue ++ [ val ]
 
                 ( Just val, Waiting ) ->
-                    aQueue ++ [ val ]
+                    aValues.queue ++ [ val ]
 
                 _ ->
-                    aQueue
+                    aValues.queue
 
         bQ =
-            case ( aSent, bState ) of
+            case ( aValues.sent, bValues.state ) of
                 ( Just val, Running ) ->
-                    bQueue ++ [ val ]
+                    bValues.queue ++ [ val ]
 
                 ( Just val, Waiting ) ->
-                    bQueue ++ [ val ]
+                    bValues.queue ++ [ val ]
 
                 _ ->
-                    bQueue
+                    bValues.queue
 
         newA =
-            { registers = aRegisters
-            , index = aIndex
+            { registers = aValues.registers
+            , index = aValues.index
             , queue = aQ
-            , state = aState
+            , state = aValues.state
             }
 
         newB =
-            { registers = bRegisters
-            , index = bIndex
+            { registers = bValues.registers
+            , index = bValues.index
             , queue = bQ
-            , state = bState
+            , state = bValues.state
             }
 
         newSent =
-            case bSent of
+            case bValues.sent of
                 Just _ ->
                     sent + 1
 
@@ -436,7 +457,7 @@ runSecond a b sent instructions listLength =
                     sent
 
         result =
-            case ( aState, bState ) of
+            case ( aValues.state, bValues.state ) of
                 ( Terminated, _ ) ->
                     Just newSent
 
@@ -446,12 +467,12 @@ runSecond a b sent instructions listLength =
                 _ ->
                     Nothing
     in
-        case result of
-            Just val ->
-                val
+    case result of
+        Just val ->
+            val
 
-            Nothing ->
-                runSecond newA newB newSent instructions listLength
+        Nothing ->
+            runSecond newA newB newSent instructions listLength
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -462,48 +483,51 @@ update msg model =
                 parsedInput =
                     parse model.input
             in
-                { model
-                    | parsedInput = Parsed ( parsedInput, List.length parsedInput )
-                }
-                    ! [ trigger WithDelay RunFirst ]
+            ( { model
+                | parsedInput = Parsed ( parsedInput, List.length parsedInput )
+              }
+            , trigger WithDelay RunFirst
+            )
 
         RunFirst ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed ( instructions, _ ) ->
                     case List.drop model.first.index instructions |> List.head of
                         Just inst ->
                             let
-                                ( lastPlayed, index, registers, result ) =
+                                nextFirstPart =
                                     nextFirst model.first inst
 
                                 nextCmd =
-                                    case result of
+                                    case nextFirstPart.result of
                                         Just _ ->
                                             [ trigger WithDelay RunSecond ]
 
                                         Nothing ->
                                             [ trigger NoDelay RunFirst ]
                             in
-                                { model
-                                    | first =
-                                        { registers = registers
-                                        , index = index
-                                        , lastPlayed = lastPlayed
-                                        , result = result
-                                        }
-                                }
-                                    ! nextCmd
+                            ( { model
+                                | first = nextFirstPart
+                              }
+                            , Cmd.batch nextCmd
+                            )
 
                         Nothing ->
-                            model ! [ trigger WithDelay RunSecond ]
+                            ( model
+                            , trigger WithDelay RunSecond
+                            )
 
         RunSecond ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed ( instructions, listLength ) ->
                     let
@@ -516,15 +540,16 @@ update msg model =
                         result =
                             runSecond a b 0 instructions listLength
                     in
-                        { model
-                            | second = Just result
-                        }
-                            ! []
+                    ( { model
+                        | second = Just result
+                      }
+                    , Cmd.none
+                    )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

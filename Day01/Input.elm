@@ -1,4 +1,4 @@
-module Day01.Input exposing (parsedInput, ParseResult(..))
+module Day01.Input exposing (ParseResult(..), parsedInput)
 
 import Array exposing (..)
 
@@ -30,15 +30,15 @@ parse input =
         array =
             input
                 |> String.split ""
-                |> List.filterMap (Result.toMaybe << String.toInt)
+                |> List.filterMap String.toInt
                 |> Array.fromList
     in
-        case Array.length array of
-            0 ->
-                Invalid
+    case Array.length array of
+        0 ->
+            Invalid
 
-            total ->
-                Valid
-                    { numbers = array
-                    , total = total
-                    }
+        total ->
+            Valid
+                { numbers = array
+                , total = total
+                }

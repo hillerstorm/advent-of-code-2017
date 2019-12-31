@@ -1,10 +1,11 @@
 module Day25.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day25.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), unsafeToInt, unsafeGet)
+import Dict exposing (Dict)
+import Helpers.Helpers exposing (Delay(..), trigger, unsafeGet, unsafeToInt)
+import Html exposing (..)
 import List.Extra
-import Dict.LLRB as Dict
 
 
 type Direction
@@ -46,9 +47,9 @@ type Msg
     | Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -56,13 +57,14 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , result = Nothing
-    }
-        ! [ trigger WithDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , result = Nothing
+      }
+    , trigger WithDelay Parse
+    )
 
 
 notEmpty : List String -> List String
@@ -80,7 +82,7 @@ isValueDef =
     Maybe.withDefault False << Maybe.map ((==) "If") << List.head
 
 
-mapValueDef : List (List String) -> ValueDef
+mapValueDef : List (List String) -> Maybe ValueDef
 mapValueDef str =
     case str of
         [ [ "-", "Write", "the", "value", x ], [ "-", "Move", "one", "slot", "to", "the", y ], [ "-", "Continue", "with", "state", z ] ] ->
@@ -88,32 +90,29 @@ mapValueDef str =
                 value =
                     x
                         |> String.dropRight 1
-                        |> unsafeToInt
+                        |> String.toInt
 
                 direction =
                     case y of
                         "left." ->
-                            Left
+                            Just Left
 
                         "right." ->
-                            Right
+                            Just Right
 
                         _ ->
-                            Debug.crash "Invalid direction"
+                            Nothing
 
                 nextState =
                     String.dropRight 1 z
             in
-                { value = value
-                , direction = direction
-                , nextState = nextState
-                }
+            Maybe.map2 (\v d -> ValueDef v d nextState) value direction
 
         _ ->
-            Debug.crash "Invalid value def"
+            Nothing
 
 
-toValueDef : List (List (List String)) -> ( ValueDef, ValueDef )
+toValueDef : List (List (List String)) -> Maybe ( ValueDef, ValueDef )
 toValueDef list =
     case list of
         [ _ :: x, _ :: y ] ->
@@ -128,13 +127,13 @@ toValueDef list =
                         |> List.Extra.takeWhile (not << isValueDef)
                         |> mapValueDef
             in
-                ( zero, one )
+            Maybe.map2 (\a b -> ( a, b )) zero one
 
         _ ->
-            Debug.crash "Invalid value def"
+            Nothing
 
 
-mapState : List String -> List (List String) -> ( String, State )
+mapState : List String -> List (List String) -> Maybe ( String, State )
 mapState head xs =
     case head of
         [ "In", "state", x ] ->
@@ -142,34 +141,30 @@ mapState head xs =
                 name =
                     String.dropRight 1 x
 
-                ( zero, one ) =
+                valueDef =
                     xs
                         |> List.Extra.takeWhile (not << isNewState)
                         |> List.Extra.tails
                         |> List.filter (Maybe.withDefault False << Maybe.map isValueDef << List.head)
                         |> toValueDef
             in
-                ( name
-                , { zero = zero
-                  , one = one
-                  }
-                )
+            Maybe.map (\( zero, one ) -> ( name, State zero one )) valueDef
 
         _ ->
-            Debug.crash "invalid state"
+            Nothing
 
 
-toState : List (List String) -> ( String, State )
+toState : List (List String) -> Maybe ( String, State )
 toState list =
     case list of
         [] ->
-            Debug.crash "Invalid state"
+            Nothing
 
         x :: xs ->
             mapState x xs
 
 
-parse : String -> Input
+parse : String -> Maybe Input
 parse input =
     case input |> String.lines |> notEmpty |> List.map (notEmpty << String.split " ") of
         [ "Begin", "in", "state", x ] :: [ "Perform", "a", "diagnostic", "checksum", "after", y, "steps." ] :: xs ->
@@ -184,25 +179,25 @@ parse input =
                     xs
                         |> List.Extra.tails
                         |> List.filter (Maybe.withDefault False << Maybe.map isNewState << List.head)
-                        |> List.map toState
+                        |> List.filterMap toState
                         |> Dict.fromList
 
                 invalidStates =
                     states
                         |> Dict.values
-                        |> List.concatMap (\a -> (Dict.get a.zero.nextState states) :: [ Dict.get a.one.nextState states ])
+                        |> List.concatMap (\a -> Dict.get a.zero.nextState states :: [ Dict.get a.one.nextState states ])
                         |> List.filter ((==) Nothing)
                         |> List.length
             in
-                case ( Dict.get currentState states, invalidStates ) of
-                    ( Just _, 0 ) ->
-                        Parsed ( states, steps, currentState )
+            case ( Dict.get currentState states, invalidStates ) of
+                ( Just _, 0 ) ->
+                    Just <| Parsed ( states, steps, currentState )
 
-                    _ ->
-                        Debug.crash "Invalid states"
+                _ ->
+                    Nothing
 
         _ ->
-            Debug.crash "Invalid input"
+            Nothing
 
 
 nextTape : Tape -> ValueDef -> Tape
@@ -214,7 +209,7 @@ nextTape ( lft, cur, rgt ) { direction, value } =
                     List.Extra.uncons lft
                         |> Maybe.withDefault ( 0, [] )
             in
-                ( xs, x, value :: rgt )
+            ( xs, x, value :: rgt )
 
         Right ->
             let
@@ -222,13 +217,14 @@ nextTape ( lft, cur, rgt ) { direction, value } =
                     List.Extra.uncons rgt
                         |> Maybe.withDefault ( 0, [] )
             in
-                ( value :: lft, x, xs )
+            ( value :: lft, x, xs )
 
 
 runFirst : Dict.Dict String State -> Int -> String -> Tape -> Int
 runFirst states steps currentState ( lft, cur, rgt ) =
     if steps == 0 then
         List.sum (lft ++ [ cur ] ++ rgt)
+
     else
         let
             { zero, one } =
@@ -237,40 +233,50 @@ runFirst states steps currentState ( lft, cur, rgt ) =
             todo =
                 if cur == 0 then
                     zero
+
                 else
                     one
         in
-            runFirst states (steps - 1) todo.nextState <| nextTape ( lft, cur, rgt ) todo
+        runFirst states (steps - 1) todo.nextState <| nextTape ( lft, cur, rgt ) todo
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
-                | parsedInput = parse model.input
-            }
-                ! [ trigger WithDelay Run ]
+            case parse model.input of
+                Just parsedInput ->
+                    ( { model
+                        | parsedInput = parsedInput
+                      }
+                    , trigger WithDelay Run
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
         Run ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed ( states, steps, startingState ) ->
                     let
                         result =
                             runFirst states steps startingState ( [], 0, [] )
                     in
-                        { model
-                            | result = Just result
-                        }
-                            ! []
+                    ( { model
+                        | result = Just result
+                      }
+                    , Cmd.none
+                    )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

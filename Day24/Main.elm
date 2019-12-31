@@ -1,8 +1,9 @@
 module Day24.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day24.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), unsafeToInt, sortDesc)
+import Helpers.Helpers exposing (Delay(..), sortDesc, trigger, unsafeToInt)
+import Html exposing (..)
 import List.Extra
 
 
@@ -29,9 +30,9 @@ type Msg
     | RunSecond
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -39,29 +40,30 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , parsedInput = NotParsed
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger WithDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , parsedInput = NotParsed
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger WithDelay Parse
+    )
 
 
-mapComponent : List String -> Component
+mapComponent : List String -> Maybe Component
 mapComponent parts =
     case parts of
         [ a, b ] ->
-            ( unsafeToInt a, unsafeToInt b )
+            Maybe.map2 (\x y -> ( x, y )) (String.toInt a) (String.toInt b)
 
         _ ->
-            Debug.crash "Invalid input"
+            Nothing
 
 
 parse : String -> Input
 parse =
-    Parsed << List.map (mapComponent << String.split "/") << String.lines
+    Parsed << List.filterMap (mapComponent << String.split "/") << String.lines
 
 
 has : Int -> Component -> Bool
@@ -73,6 +75,7 @@ isNot : Int -> Component -> Int
 isNot num ( a, b ) =
     if a == num then
         b
+
     else
         a
 
@@ -102,17 +105,17 @@ buildRest num sortFunc ( component, components ) =
         numToCheck =
             isNot num component
     in
-        components
-            |> buildBridge numToCheck sortFunc
-            |> Tuple.mapFirst ((+) 1)
-            |> Tuple.mapSecond ((+) <| num + numToCheck)
+    components
+        |> buildBridge numToCheck sortFunc
+        |> Tuple.mapFirst ((+) 1)
+        |> Tuple.mapSecond ((+) <| num + numToCheck)
 
 
 buildBridge : Int -> (Bridge -> Bridge -> Order) -> List Component -> Bridge
 buildBridge num sortFunc components =
     components
         |> List.Extra.select
-        |> List.filter ((has num) << Tuple.first)
+        |> List.filter (has num << Tuple.first)
         |> List.map (buildRest num sortFunc)
         |> List.sortWith sortFunc
         |> List.head
@@ -123,45 +126,52 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
+            ( { model
                 | parsedInput = parse model.input
-            }
-                ! [ trigger WithDelay RunFirst ]
+              }
+            , trigger WithDelay RunFirst
+            )
 
         RunFirst ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed components ->
                     let
                         ( _, firstPart ) =
                             buildBridge 0 scoreOnly components
                     in
-                        { model
-                            | firstPart = Just firstPart
-                        }
-                            ! [ trigger WithDelay RunSecond ]
+                    ( { model
+                        | firstPart = Just firstPart
+                      }
+                    , trigger WithDelay RunSecond
+                    )
 
         RunSecond ->
             case model.parsedInput of
                 NotParsed ->
-                    model ! [ trigger WithDelay Parse ]
+                    ( model
+                    , trigger WithDelay Parse
+                    )
 
                 Parsed components ->
                     let
                         ( _, secondPart ) =
                             buildBridge 0 lengthBeforeScore components
                     in
-                        { model
-                            | secondPart = Just secondPart
-                        }
-                            ! []
+                    ( { model
+                        | secondPart = Just secondPart
+                      }
+                    , Cmd.none
+                    )
 
 
 print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map toString
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg

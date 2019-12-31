@@ -1,8 +1,9 @@
 module Day04.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day04.Input exposing (parsedInput)
-import Helpers.Helpers exposing (trigger, Delay(..), count, unique)
+import Helpers.Helpers exposing (Delay(..), count, trigger, unique)
+import Html exposing (..)
 
 
 type alias Model =
@@ -16,9 +17,9 @@ type Msg
     = Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -26,13 +27,14 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = parsedInput
-    , firstPartCount = 0
-    , secondPartCount = 0
-    }
-        ! [ trigger NoDelay Run ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = parsedInput
+      , firstPartCount = 0
+      , secondPartCount = 0
+      }
+    , trigger NoDelay Run
+    )
 
 
 isUnique : List comparable -> Bool
@@ -60,16 +62,17 @@ update msg model =
                 secondPartCount =
                     count isUniqueWithAnagrams passwords
             in
-                { model
-                    | firstPartCount = firstPartCount
-                    , secondPartCount = secondPartCount
-                }
-                    ! []
+            ( { model
+                | firstPartCount = firstPartCount
+                , secondPartCount = secondPartCount
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstPartCount ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondPartCount ]
+        [ div [] [ text <| "Part 1: " ++ String.fromInt model.firstPartCount ]
+        , div [] [ text <| "Part 2: " ++ String.fromInt model.secondPartCount ]
         ]

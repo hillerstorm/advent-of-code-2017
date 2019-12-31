@@ -1,9 +1,10 @@
 module Day08.Main exposing (main)
 
-import Html exposing (..)
+import Browser
 import Day08.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..), prettyMaybe, unsafeToInt)
-import Dict.LLRB as Dict exposing (..)
+import Dict exposing (Dict)
+import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger, unsafeToInt)
+import Html exposing (..)
 
 
 type alias Instruction =
@@ -40,9 +41,9 @@ type Msg
     | NextInstruction
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -50,75 +51,82 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , queue = NotParsed
-    , maxValue = 0
-    , registers = Dict.empty
-    , firstPart = Nothing
-    , secondPart = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , queue = NotParsed
+      , maxValue = 0
+      , registers = Dict.empty
+      , firstPart = Nothing
+      , secondPart = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
-parseOp : String -> Int -> Int -> Int
+parseOp : String -> Maybe (Int -> Int -> Int)
 parseOp string =
     case string of
         "inc" ->
-            (+)
+            Just (+)
 
         "dec" ->
-            (-)
+            Just (-)
 
         _ ->
-            Debug.crash "Invalid op"
+            Nothing
 
 
-parseFunc : String -> Int -> Int -> Bool
+parseFunc : String -> Maybe (Int -> Int -> Bool)
 parseFunc string =
     case string of
         ">" ->
-            (>)
+            Just (>)
 
         "<" ->
-            (<)
+            Just (<)
 
         ">=" ->
-            (>=)
+            Just (>=)
 
         "<=" ->
-            (<=)
+            Just (<=)
 
         "==" ->
-            (==)
+            Just (==)
 
         "!=" ->
-            (/=)
+            Just (/=)
 
         _ ->
-            Debug.crash "Invalid func"
+            Nothing
 
 
-parseInstruction : String -> Instruction
+parseInstruction : String -> Maybe Instruction
 parseInstruction string =
     case String.words string of
         [ register, op, value, "if", compRegister, compFunc, compValue ] ->
-            { register = register
-            , op = parseOp op
-            , value = unsafeToInt value
-            , compRegister = compRegister
-            , compValue = unsafeToInt compValue
-            , compFunc = parseFunc compFunc
-            }
+            case ( parseFunc compFunc, parseOp op ) of
+                ( Just fn, Just opFn ) ->
+                    Just
+                        { register = register
+                        , op = opFn
+                        , value = unsafeToInt value
+                        , compRegister = compRegister
+                        , compValue = unsafeToInt compValue
+                        , compFunc = fn
+                        }
+
+                _ ->
+                    Nothing
 
         _ ->
-            Debug.crash "Invalid instruction"
+            Nothing
 
 
 parse : String -> Input
 parse =
-    Parsed << List.map parseInstruction << String.lines
+    Parsed << List.filterMap parseInstruction << String.lines
 
 
 applyFunc : Instruction -> Int -> Maybe Int -> Maybe Int
@@ -130,10 +138,11 @@ applyFunc { compFunc, compValue, op, value } compRegister currVal =
         newValue =
             if compFunc compRegister compValue then
                 op currentValue value
+
             else
                 currentValue
     in
-        Just newValue
+    Just newValue
 
 
 applyInstruction : Instruction -> Registers -> Registers
@@ -146,7 +155,7 @@ applyInstruction instruction registers =
         fn =
             applyFunc instruction compRegister
     in
-        Dict.update instruction.register fn registers
+    Dict.update instruction.register fn registers
 
 
 type State
@@ -170,22 +179,25 @@ advance queue registers =
                         _ ->
                             Running
             in
-                ( xs, applyInstruction x registers, nextState )
+            ( xs, applyInstruction x registers, nextState )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            { model
+            ( { model
                 | queue = parse model.input
-            }
-                ! [ trigger NoDelay NextInstruction ]
+              }
+            , trigger NoDelay NextInstruction
+            )
 
         NextInstruction ->
             case model.queue of
                 NotParsed ->
-                    model ! []
+                    ( model
+                    , Cmd.none
+                    )
 
                 Parsed queue ->
                     let
@@ -201,6 +213,7 @@ update msg model =
                         newMaxValue =
                             if currentMaxValue > model.maxValue then
                                 currentMaxValue
+
                             else
                                 model.maxValue
 
@@ -212,14 +225,15 @@ update msg model =
                                 Running ->
                                     ( Nothing, Nothing, [ trigger (DelayWithMs 1) NextInstruction ] )
                     in
-                        { model
-                            | queue = Parsed newQueue
-                            , maxValue = newMaxValue
-                            , registers = newRegisters
-                            , firstPart = firstPart
-                            , secondPart = secondPart
-                        }
-                            ! nextCmd
+                    ( { model
+                        | queue = Parsed newQueue
+                        , maxValue = newMaxValue
+                        , registers = newRegisters
+                        , firstPart = firstPart
+                        , secondPart = secondPart
+                      }
+                    , Cmd.batch nextCmd
+                    )
 
 
 view : Model -> Html msg
@@ -237,6 +251,6 @@ view model =
                         ]
 
                     _ ->
-                        [ div [] [ text <| "Instructions left: " ++ toString (List.length queue) ]
+                        [ div [] [ text <| "Instructions left: " ++ String.fromInt (List.length queue) ]
                         ]
         )

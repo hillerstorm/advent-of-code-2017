@@ -1,11 +1,12 @@
-module Day10.Main exposing (main, calcKnotHash)
+module Day10.Main exposing (calcKnotHash, main)
 
-import Html exposing (..)
-import Day10.Input exposing (rawInput)
-import Helpers.Helpers exposing (trigger, Delay(..))
-import Hex
 import Bitwise
+import Browser
 import Char
+import Day10.Input exposing (rawInput)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Hex
+import Html exposing (..)
 
 
 type alias FirstPart =
@@ -43,9 +44,9 @@ type Msg
     | CalcSecond
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -58,26 +59,28 @@ listLength =
     256
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = rawInput
-    , first = Nothing
-    , second = Nothing
-    }
-        ! [ trigger NoDelay Parse ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = rawInput
+      , first = Nothing
+      , second = Nothing
+      }
+    , trigger NoDelay Parse
+    )
 
 
 toInt : String -> Maybe Int
 toInt str =
     case String.toInt str of
-        Ok val ->
+        Just val ->
             if val > listLength then
                 Nothing
+
             else
                 Just val
 
-        Err _ ->
-            Debug.crash "Invalid input"
+        Nothing ->
+            Nothing
 
 
 parseFirst : String -> List Int
@@ -94,7 +97,7 @@ parseFirst str =
 
 parseSecond : String -> List Int
 parseSecond =
-    (flip List.append) [ 17, 31, 73, 47, 23 ] << List.map Char.toCode << String.toList
+    (\b a -> List.append a b) [ 17, 31, 73, 47, 23 ] << List.map Char.toCode << String.toList
 
 
 advance : List Int -> Int -> Int -> List Int -> ( List Int, Int, List Int )
@@ -123,12 +126,12 @@ advance list idx step lengths =
                     reversed ++ List.drop x sliced
 
                 newList =
-                    (List.drop afterIdxLength reSliced) ++ List.take afterIdxLength reSliced
+                    List.drop afterIdxLength reSliced ++ List.take afterIdxLength reSliced
 
                 newIndex =
-                    (idx + x + step) % listLength
+                    modBy listLength (idx + x + step)
             in
-                ( newList, newIndex, xs )
+            ( newList, newIndex, xs )
 
 
 nextHashRound : List Int -> Int -> List Int -> Int -> List Int -> Int -> List Int
@@ -154,7 +157,8 @@ nextHashRound lengths rounds list index current step =
                     _ ->
                         rounds
         in
-            nextHashRound lengths newRounds newList newIndex newCurrent <| step + 1
+        nextHashRound lengths newRounds newList newIndex newCurrent <| step + 1
+
     else
         list
 
@@ -166,9 +170,9 @@ calcKnotHash string =
             parseSecond string
 
         list =
-            (List.range 0 255)
+            List.range 0 255
     in
-        getKnotHash <| nextHashRound lengths 64 list 0 lengths 0
+    getKnotHash <| nextHashRound lengths 64 list 0 lengths 0
 
 
 calcDense : List Int -> List Int -> List Int
@@ -183,7 +187,7 @@ calcDense result list =
 
 getKnotHash : List Int -> String
 getKnotHash =
-    List.foldl (flip (++)) "" << List.map (String.padLeft 2 '0' << Hex.toString) << calcDense []
+    List.foldl (\b a -> (++) a b) "" << List.map (String.padLeft 2 '0' << Hex.toString) << calcDense []
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -217,11 +221,12 @@ update msg model =
                         , result = Nothing
                         }
             in
-                { model
-                    | first = first
-                    , second = second
-                }
-                    ! [ trigger NoDelay NextFirst ]
+            ( { model
+                | first = first
+                , second = second
+              }
+            , trigger NoDelay NextFirst
+            )
 
         NextFirst ->
             case model.first of
@@ -247,13 +252,16 @@ update msg model =
                                     , step = first.step + 1
                                 }
                     in
-                        { model
-                            | first = newFirst
-                        }
-                            ! [ trigger NoDelay newMsg ]
+                    ( { model
+                        | first = newFirst
+                      }
+                    , trigger NoDelay newMsg
+                    )
 
                 Nothing ->
-                    model ! [ trigger NoDelay Parse ]
+                    ( model
+                    , trigger NoDelay Parse
+                    )
 
         CalcFirst ->
             case model.first of
@@ -273,13 +281,16 @@ update msg model =
                                     | result = result
                                 }
                     in
-                        { model
-                            | first = newFirst
-                        }
-                            ! [ trigger NoDelay NextSecond ]
+                    ( { model
+                        | first = newFirst
+                      }
+                    , trigger NoDelay NextSecond
+                    )
 
                 Nothing ->
-                    model ! [ trigger NoDelay Parse ]
+                    ( model
+                    , trigger NoDelay Parse
+                    )
 
         NextSecond ->
             case model.second of
@@ -315,15 +326,21 @@ update msg model =
                                         , step = second.step + 1
                                     }
                         in
-                            { model
-                                | second = newSecond
-                            }
-                                ! [ trigger NoDelay NextSecond ]
+                        ( { model
+                            | second = newSecond
+                          }
+                        , trigger NoDelay NextSecond
+                        )
+
                     else
-                        model ! [ trigger NoDelay CalcSecond ]
+                        ( model
+                        , trigger NoDelay CalcSecond
+                        )
 
                 Nothing ->
-                    model ! [ trigger NoDelay Parse ]
+                    ( model
+                    , trigger NoDelay Parse
+                    )
 
         CalcSecond ->
             case model.second of
@@ -337,13 +354,16 @@ update msg model =
                                 | result = Just knotHash
                             }
                     in
-                        { model
-                            | second = Just newSecond
-                        }
-                            ! []
+                    ( { model
+                        | second = Just newSecond
+                      }
+                    , Cmd.none
+                    )
 
                 Nothing ->
-                    model ! [ trigger NoDelay Parse ]
+                    ( model
+                    , trigger NoDelay Parse
+                    )
 
 
 print : Maybe { a | result : Maybe b } -> String
@@ -352,7 +372,7 @@ print part =
         Just x ->
             case x.result of
                 Just val ->
-                    toString val
+                    Debug.toString val
 
                 Nothing ->
                     "Calculating..."

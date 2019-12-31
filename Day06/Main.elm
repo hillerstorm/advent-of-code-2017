@@ -1,8 +1,9 @@
 module Day06.Main exposing (main)
 
+import Browser
+import Day06.Input exposing (Input, parsedInput)
+import Helpers.Helpers exposing (Delay(..), trigger)
 import Html exposing (..)
-import Day06.Input exposing (parsedInput, Input)
-import Helpers.Helpers exposing (trigger, Delay(..))
 import List.Extra
 
 
@@ -17,9 +18,9 @@ type Msg
     = Run
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
         , update = update
         , subscriptions = \_ -> Sub.none
@@ -32,13 +33,14 @@ inputLength =
     List.length parsedInput
 
 
-init : ( Model, Cmd Msg )
-init =
-    { input = parsedInput
-    , firstPart = 0
-    , secondPart = 0
-    }
-        ! [ trigger NoDelay Run ]
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { input = parsedInput
+      , firstPart = 0
+      , secondPart = 0
+      }
+    , trigger NoDelay Run
+    )
 
 
 replaceWith : Int -> Int -> Int -> Int -> Int -> Int -> Int
@@ -52,22 +54,27 @@ replaceWith currIdx maxIdx allReplace rest i num =
                 if maxIdx > minIdx then
                     if i >= minIdx && i <= maxIdx then
                         1
+
                     else
                         0
+
                 else if (i >= 0 && i <= maxIdx) || (i >= minIdx) then
                     1
+
                 else
                     0
+
             else
                 0
 
         actualNum =
             if i == currIdx then
                 0
+
             else
                 num
     in
-        actualNum + allReplace + additional
+    actualNum + allReplace + additional
 
 
 advance : Input -> List Input -> ( Input, List Input )
@@ -85,18 +92,19 @@ advance current seen =
             maxNum // inputLength
 
         rest =
-            maxNum % inputLength
+            modBy inputLength maxNum
 
         maxIdx =
-            (idx + rest) % inputLength
+            modBy inputLength (idx + rest)
 
         newCurrent =
             List.indexedMap (replaceWith idx maxIdx allReplace rest) current
     in
-        if List.member newCurrent seen then
-            ( newCurrent, seen )
-        else
-            advance newCurrent <| newCurrent :: seen
+    if List.member newCurrent seen then
+        ( newCurrent, seen )
+
+    else
+        advance newCurrent <| newCurrent :: seen
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -116,16 +124,17 @@ update msg model =
                         |> Maybe.withDefault -1
                         |> (+) 1
             in
-                { model
-                    | firstPart = firstPart
-                    , secondPart = secondPart
-                }
-                    ! []
+            ( { model
+                | firstPart = firstPart
+                , secondPart = secondPart
+              }
+            , Cmd.none
+            )
 
 
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ toString model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ toString model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ String.fromInt model.firstPart ]
+        , div [] [ text <| "Part 2: " ++ String.fromInt model.secondPart ]
         ]
