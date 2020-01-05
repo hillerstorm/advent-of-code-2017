@@ -1,8 +1,8 @@
 module Day17.Main exposing (main)
 
 import Browser
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 import List.Extra
 
 
@@ -89,7 +89,7 @@ update msg model =
                     List.Extra.splitAt (idx + 1) model.state
 
                 newState =
-                    l ++ [ len ] ++ r
+                    l ++ len :: r
 
                 newIndex =
                     if len == 0 then

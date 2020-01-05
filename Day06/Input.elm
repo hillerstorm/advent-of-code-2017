@@ -12,9 +12,5 @@ rawInput =
 
 parsedInput : Input
 parsedInput =
-    parse rawInput
-
-
-parse : String -> Input
-parse =
-    List.filterMap String.toInt << String.words
+    String.words rawInput
+        |> List.filterMap String.toInt

@@ -3,8 +3,8 @@ module Day16.Main exposing (main)
 import Browser
 import Char
 import Day16.Input exposing (rawInput)
-import Helpers.Helpers exposing (Delay(..), mapTuple, prettyMaybe, trigger, unsafeToInt)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), mapTuple, trigger)
+import Html exposing (Html, div, text)
 import List.Extra
 
 
@@ -45,7 +45,8 @@ numPrograms =
 
 initPrograms : List String
 initPrograms =
-    List.range 0 (numPrograms - 1) |> List.map (String.fromChar << Char.fromCode << (+) 97)
+    List.range 0 (numPrograms - 1)
+        |> List.map (String.fromChar << Char.fromCode << (+) 97)
 
 
 init : () -> ( Model, Cmd Msg )
@@ -61,29 +62,33 @@ init _ =
 
 
 parseMove : String -> Maybe Move
-parseMove str =
-    case String.uncons str of
-        Just ( 's', num ) ->
-            Just <| Spin <| unsafeToInt num
+parseMove =
+    Maybe.andThen
+        (\( x, ab ) ->
+            case x of
+                's' ->
+                    Maybe.map Spin (String.toInt ab)
 
-        Just ( 'x', ab ) ->
-            case String.split "/" ab of
-                [ a, b ] ->
-                    Just <| Exchange (unsafeToInt a) (unsafeToInt b)
+                'x' ->
+                    case String.split "/" ab of
+                        [ a, b ] ->
+                            Maybe.map2 Exchange (String.toInt a) (String.toInt b)
+
+                        _ ->
+                            Nothing
+
+                'p' ->
+                    case String.split "/" ab of
+                        [ a, b ] ->
+                            Just (Partner a b)
+
+                        _ ->
+                            Nothing
 
                 _ ->
                     Nothing
-
-        Just ( 'p', ab ) ->
-            case String.split "/" ab of
-                [ a, b ] ->
-                    Just <| Partner a b
-
-                _ ->
-                    Nothing
-
-        _ ->
-            Nothing
+        )
+        << String.uncons
 
 
 nextMove : String -> ( Maybe Move, String )
@@ -119,8 +124,7 @@ nextMove str =
 
 exchange : List String -> Int -> Int -> List String
 exchange programs a b =
-    programs
-        |> List.Extra.swapAt a b
+    List.Extra.swapAt a b programs
 
 
 dance : String -> List String -> List String
@@ -136,7 +140,7 @@ dance moves programs =
                         Spin x ->
                             programs
                                 |> List.Extra.splitAt (numPrograms - x)
-                                |> mapTuple (\b a -> (++) a b)
+                                |> mapTuple (\b a -> a ++ b)
 
                         Exchange a b ->
                             exchange programs a b
@@ -198,13 +202,8 @@ update msg model =
 
 
 print : Maybe String -> String
-print part =
-    case part of
-        Just x ->
-            x
-
-        Nothing ->
-            "Calculating..."
+print =
+    Maybe.withDefault "Calculating..."
 
 
 view : Model -> Html msg

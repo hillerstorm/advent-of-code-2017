@@ -4,7 +4,7 @@ import Browser
 import Day18.Input exposing (rawInput)
 import Dict exposing (Dict)
 import Helpers.Helpers exposing (Delay(..), trigger)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 
 
 type alias Register =
@@ -32,7 +32,7 @@ type Input
 
 
 type alias FirstPart =
-    { registers : Dict.Dict Register Int
+    { registers : Dict Register Int
     , index : Int
     , lastPlayed : Int
     , result : Maybe Int
@@ -46,7 +46,7 @@ type State
 
 
 type alias Prgrm =
-    { registers : Dict.Dict Register Int
+    { registers : Dict Register Int
     , queue : List Int
     , index : Int
     , state : State
@@ -133,7 +133,7 @@ parse =
     List.filterMap parseInstruction << String.lines
 
 
-getValue : Dict.Dict Register Int -> RegOrVal -> Int
+getValue : Dict Register Int -> RegOrVal -> Int
 getValue registers x =
     case x of
         Reg r ->
@@ -559,7 +559,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ ->
                 [ div [] [ text <| "Part 1: " ++ print model.first.result ]
                 , div [] [ text <| "Part 2: " ++ print model.second ]
                 ]

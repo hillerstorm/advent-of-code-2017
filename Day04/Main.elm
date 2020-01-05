@@ -3,7 +3,7 @@ module Day04.Main exposing (main)
 import Browser
 import Day04.Input exposing (parsedInput)
 import Helpers.Helpers exposing (Delay(..), count, trigger, unique)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 
 
 type alias Model =

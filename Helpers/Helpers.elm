@@ -3,18 +3,14 @@ module Helpers.Helpers exposing
     , count
     , flip
     , mapTuple
-    , prettyMaybe
     , sortDesc
     , trigger
     , unique
-    , unsafeGet
-    , unsafeToInt
     )
 
-import Dict exposing (Dict)
 import Process exposing (sleep)
 import Set
-import Task exposing (..)
+import Task exposing (perform, succeed)
 
 
 type Delay
@@ -49,36 +45,6 @@ count f =
 unique : List comparable -> List comparable
 unique =
     Set.toList << Set.fromList
-
-
-prettyMaybe : Maybe a -> String
-prettyMaybe aMaybe =
-    case aMaybe of
-        Just x ->
-            Debug.toString x
-
-        Nothing ->
-            Debug.toString aMaybe
-
-
-unsafeGet : comparable -> Dict comparable v -> v
-unsafeGet key dict =
-    case Dict.get key dict of
-        Just x ->
-            x
-
-        Nothing ->
-            Debug.todo "Key not found..."
-
-
-unsafeToInt : String -> Int
-unsafeToInt str =
-    case String.toInt str of
-        Just val ->
-            val
-
-        Nothing ->
-            Debug.todo "Invalid number"
 
 
 mapTuple : (a -> b -> c) -> ( a, b ) -> c

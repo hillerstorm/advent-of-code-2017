@@ -23,12 +23,6 @@ rawInput =
 
 parsedInput : List (List Int)
 parsedInput =
-    parse rawInput
-
-
-parse : String -> List (List Int)
-parse input =
-    input
-        |> String.lines
+    String.lines rawInput
         |> List.map String.words
         |> List.map (List.filterMap String.toInt)

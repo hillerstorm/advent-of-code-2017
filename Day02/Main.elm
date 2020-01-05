@@ -3,7 +3,7 @@ module Day02.Main exposing (main)
 import Browser
 import Day02.Input exposing (parsedInput)
 import Helpers.Helpers exposing (Delay(..), trigger)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 
 
 type alias Model =

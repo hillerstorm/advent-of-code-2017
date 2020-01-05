@@ -2,8 +2,8 @@ module Day13.Main exposing (main)
 
 import Browser
 import Day13.Input exposing (rawInput)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 
 
 type Input
@@ -49,12 +49,7 @@ toTuple : String -> Maybe ( Int, Int )
 toTuple str =
     case String.split ": " str of
         [ k, v ] ->
-            case ( String.toInt k, String.toInt v ) of
-                ( Just key, Just value ) ->
-                    Just ( key, value )
-
-                _ ->
-                    Nothing
+            Maybe.map2 Tuple.pair (String.toInt k) (String.toInt v)
 
         _ ->
             Nothing
@@ -139,6 +134,11 @@ update msg model =
                     )
 
 
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
+
+
 view : Model -> Html msg
 view model =
     div []
@@ -146,8 +146,8 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
-                [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-                , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+            Parsed _ ->
+                [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+                , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]
         )

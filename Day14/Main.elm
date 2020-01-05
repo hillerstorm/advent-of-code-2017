@@ -4,11 +4,11 @@ import Browser
 import Day10.Main exposing (calcKnotHash)
 import Day12.Main exposing (countGroups, getGroup)
 import Day14.Input exposing (rawInput)
-import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger, unique, unsafeGet, unsafeToInt)
-import Html exposing (..)
+import Dict exposing (fromList)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 import ParseInt
-import Set
+import Set exposing (Set)
 
 
 type alias Model =
@@ -43,24 +43,19 @@ init _ =
 
 
 hexToByte : String -> Maybe String
-hexToByte string =
-    case ParseInt.parseIntHex string of
-        Ok val ->
-            Just <| String.padLeft 4 '0' <| ParseInt.toRadixUnsafe 2 val
-
-        Err _ ->
-            Nothing
+hexToByte =
+    Result.toMaybe << Result.andThen (Ok << String.padLeft 4 '0' << ParseInt.toRadixUnsafe 2) << ParseInt.parseIntHex
 
 
 getBits : String -> String
-getBits key =
-    calcKnotHash key
-        |> String.split ""
-        |> List.filterMap hexToByte
-        |> String.join ""
+getBits =
+    String.join ""
+        << List.filterMap hexToByte
+        << String.split ""
+        << calcKnotHash
 
 
-getAdjacent : Int -> List Int -> Set.Set Int
+getAdjacent : Int -> List Int -> Set Int
 getAdjacent idx cells =
     let
         x =
@@ -94,15 +89,11 @@ update msg model =
             let
                 cells =
                     List.range 0 127
-                        |> List.map (\i -> List.filterMap String.toInt <| String.split "" <| getBits <| model.input ++ "-" ++ String.fromInt i)
+                        |> List.map (List.filterMap String.toInt << String.split "" << getBits << (++) (model.input ++ "-") << String.fromInt)
                         |> List.concat
 
-                usedCells =
-                    List.sum cells
-
                 indexed =
-                    cells
-                        |> List.indexedMap (\a b -> ( a, b ))
+                    List.indexedMap Tuple.pair cells
                         |> List.filter ((==) 1 << Tuple.second)
                         |> List.map Tuple.first
 
@@ -111,28 +102,32 @@ update msg model =
                         |> List.map (\i -> ( i, getAdjacent i indexed ))
                         |> Dict.fromList
 
-                firstGroup =
+                secondPart =
                     case indexed of
                         [] ->
-                            Set.empty
+                            countGroups Set.empty dict 1
 
                         x :: _ ->
-                            getGroup (unsafeGet x dict) dict <| Set.singleton x
-
-                totalGroups =
-                    countGroups firstGroup dict 1
+                            Dict.get x dict
+                                |> Maybe.andThen (\value -> getGroup value dict <| Set.singleton x)
+                                |> Maybe.andThen (\grp -> countGroups grp dict 1)
             in
             ( { model
-                | firstPart = Just usedCells
-                , secondPart = Just totalGroups
+                | firstPart = Just <| List.sum cells
+                , secondPart = secondPart
               }
             , Cmd.none
             )
 
 
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
+
+
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+        , div [] [ text <| "Part 2: " ++ print model.secondPart ]
         ]

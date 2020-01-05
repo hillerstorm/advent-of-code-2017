@@ -4,12 +4,8 @@ import Browser
 import Char
 import Day19.Input exposing (rawInput)
 import Helpers.Helpers exposing (Delay(..), trigger)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 import List.Extra
-
-
-type alias Position =
-    ( Int, Int )
 
 
 type alias ParsedInput =
@@ -87,8 +83,7 @@ parse input =
                 |> (+) 1
 
         padded =
-            lines
-                |> List.map (String.padRight width ' ')
+            List.map (String.padRight width ' ') lines
                 |> String.concat
                 |> String.toList
     in
@@ -169,8 +164,7 @@ update msg model =
                     parse model.input
 
                 index =
-                    parsedInput
-                        |> List.take width
+                    List.take width parsedInput
                         |> List.Extra.elemIndex '|'
             in
             case index of
@@ -276,9 +270,14 @@ update msg model =
                     )
 
 
-print : Maybe a -> String
+print : Maybe Int -> String
 print =
-    Maybe.withDefault "Calculating..." << Maybe.map Debug.toString
+    printStr << Maybe.map String.fromInt
+
+
+printStr : Maybe String -> String
+printStr =
+    Maybe.withDefault "Calculating..."
 
 
 view : Model -> Html msg
@@ -288,8 +287,8 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
-                [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+            Parsed _ ->
+                [ div [] [ text <| "Part 1: " ++ printStr model.firstPart ]
                 , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]
         )

@@ -2,13 +2,12 @@ module Day09.Main exposing (main)
 
 import Browser
 import Day09.Input exposing (rawInput)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 
 
 type alias Group =
-    { children : List Thing
-    }
+    List Thing
 
 
 type Thing
@@ -56,78 +55,82 @@ init _ =
 
 
 parseGarbage : String -> String -> Maybe ( String, String )
-parseGarbage garbage str =
-    case String.uncons str of
-        Just ( '!', xs ) ->
-            case String.uncons xs of
-                Just ( _, xxs ) ->
-                    parseGarbage garbage xxs
+parseGarbage garbage =
+    Maybe.andThen
+        (\( x, xs ) ->
+            case x of
+                '!' ->
+                    Maybe.andThen (parseGarbage garbage << Tuple.second) <| String.uncons xs
 
-                Nothing ->
-                    Nothing
+                '>' ->
+                    Just ( garbage, xs )
 
-        Just ( '>', xs ) ->
-            Just ( garbage, xs )
-
-        Just ( x, xs ) ->
-            parseGarbage (garbage ++ String.fromChar x) xs
-
-        Nothing ->
-            Nothing
+                _ ->
+                    parseGarbage (garbage ++ String.fromChar x) xs
+        )
+        << String.uncons
 
 
 parseGroup : List Thing -> String -> Maybe ( Group, String )
-parseGroup children str =
-    case String.uncons str of
-        Just ( ',', xs ) ->
-            parseGroup children xs
+parseGroup children =
+    Maybe.andThen
+        (\( x, xs ) ->
+            case x of
+                ',' ->
+                    parseGroup children xs
 
-        Just ( '}', xs ) ->
-            Just ( Group children, xs )
+                '}' ->
+                    Just ( children, xs )
 
-        Just ( '{', xs ) ->
-            case parseGroup [] xs of
-                Just ( grp, rest ) ->
-                    parseGroup (children ++ [ Thing grp ]) rest
+                '{' ->
+                    Maybe.andThen
+                        (\( grp, rest ) ->
+                            parseGroup (children ++ [ Thing grp ]) rest
+                        )
+                    <|
+                        parseGroup [] xs
 
-                Nothing ->
+                '<' ->
+                    Maybe.andThen
+                        (\( garbage, rest ) ->
+                            parseGroup (children ++ [ Garbage garbage ]) rest
+                        )
+                    <|
+                        parseGarbage "" xs
+
+                _ ->
                     Nothing
-
-        Just ( '<', xs ) ->
-            case parseGarbage "" xs of
-                Just ( garbage, rest ) ->
-                    parseGroup (children ++ [ Garbage garbage ]) rest
-
-                Nothing ->
-                    Nothing
-
-        _ ->
-            Nothing
+        )
+        << String.uncons
 
 
 parse : String -> Maybe Input
-parse str =
-    case String.uncons str of
-        Just ( '{', xs ) ->
-            case parseGroup [] xs of
-                Just ( grp, rest ) ->
-                    if String.isEmpty rest then
-                        Just (Parsed grp)
+parse =
+    Maybe.andThen
+        (\( x, xs ) ->
+            case x of
+                '{' ->
+                    Maybe.andThen
+                        (\( grp, rest ) ->
+                            if String.isEmpty rest then
+                                Just (Parsed grp)
 
-                    else
-                        Nothing
+                            else
+                                Nothing
+                        )
+                    <|
+                        parseGroup [] xs
 
-                Nothing ->
+                _ ->
                     Nothing
-
-        _ ->
-            Nothing
+        )
+        << String.uncons
 
 
 scoreThing : Int -> Thing -> Int
 scoreThing score thing =
     case thing of
-        Thing { children } ->
+        Thing children ->
             getScore (score + 1) children
 
         Garbage _ ->
@@ -142,7 +145,7 @@ getScore score =
 countGarbage : Thing -> Int
 countGarbage thing =
     case thing of
-        Thing { children } ->
+        Thing children ->
             garbageLength children
 
         Garbage garbage ->
@@ -178,18 +181,23 @@ update msg model =
                     , Cmd.none
                     )
 
-                Parsed grp ->
+                Parsed children ->
                     ( { model
-                        | firstPart = Just <| getScore 1 grp.children
-                        , secondPart = Just <| garbageLength grp.children
+                        | firstPart = Just <| getScore 1 children
+                        , secondPart = Just <| garbageLength children
                       }
                     , Cmd.none
                     )
 
 
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
+
+
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+        , div [] [ text <| "Part 2: " ++ print model.secondPart ]
         ]

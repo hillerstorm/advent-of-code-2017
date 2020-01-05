@@ -3,8 +3,8 @@ module Day08.Main exposing (main)
 import Browser
 import Day08.Input exposing (rawInput)
 import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger, unsafeToInt)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 
 
 type alias Instruction =
@@ -106,19 +106,20 @@ parseInstruction : String -> Maybe Instruction
 parseInstruction string =
     case String.words string of
         [ register, op, value, "if", compRegister, compFunc, compValue ] ->
-            case ( parseFunc compFunc, parseOp op ) of
-                ( Just fn, Just opFn ) ->
-                    Just
-                        { register = register
-                        , op = opFn
-                        , value = unsafeToInt value
-                        , compRegister = compRegister
-                        , compValue = unsafeToInt compValue
-                        , compFunc = fn
-                        }
-
-                _ ->
-                    Nothing
+            Maybe.map4
+                (\fn opFn iVal iCompVal ->
+                    { register = register
+                    , op = opFn
+                    , value = iVal
+                    , compRegister = compRegister
+                    , compValue = iCompVal
+                    , compFunc = fn
+                    }
+                )
+                (parseFunc compFunc)
+                (parseOp op)
+                (String.toInt value)
+                (String.toInt compValue)
 
         _ ->
             Nothing
@@ -236,6 +237,11 @@ update msg model =
                     )
 
 
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
+
+
 view : Model -> Html msg
 view model =
     div []
@@ -246,8 +252,8 @@ view model =
             Parsed queue ->
                 case queue of
                     [] ->
-                        [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-                        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+                        [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+                        , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                         ]
 
                     _ ->

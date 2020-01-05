@@ -3,8 +3,8 @@ module Day23.Main exposing (main)
 import Browser
 import Day23.Input exposing (rawInput)
 import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), trigger, unsafeToInt)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 
 
 type alias Register =
@@ -30,7 +30,7 @@ type Input
 
 
 type alias Part =
-    { registers : Dict.Dict Register Int
+    { registers : Dict Register Int
     , result : Maybe Int
     }
 
@@ -96,10 +96,10 @@ parseInstruction str =
             Just <| Mul x <| mapRegOrVal y
 
         [ "jnz", "1", y ] ->
-            Just <| Jmp <| unsafeToInt y
+            Maybe.map Jmp (String.toInt y)
 
         [ "jnz", x, y ] ->
-            Just <| Jnz (mapRegOrVal x) <| unsafeToInt y
+            Maybe.map (\a -> Jnz (mapRegOrVal x) a) (String.toInt y)
 
         _ ->
             Nothing
@@ -144,7 +144,7 @@ next instructions registers index mulExecuteCount =
                                     getValue registers y
 
                                 regs =
-                                    Dict.update x (Just << (\b a -> (-) a b) value << Maybe.withDefault 0) registers
+                                    Dict.update x (Just << (\b a -> a - b) value << Maybe.withDefault 0) registers
                             in
                             ( index + 1, regs, mulExecuteCount )
 
@@ -246,7 +246,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ ->
                 [ div [] [ text <| "Part 1: " ++ print model.first.result ]
                 , div [] [ text <| "Part 2: " ++ print model.second.result ]
                 ]

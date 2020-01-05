@@ -2,8 +2,8 @@ module Day24.Main exposing (main)
 
 import Browser
 import Day24.Input exposing (rawInput)
-import Helpers.Helpers exposing (Delay(..), sortDesc, trigger, unsafeToInt)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), sortDesc, trigger)
+import Html exposing (Html, div, text)
 import List.Extra
 
 
@@ -55,7 +55,7 @@ mapComponent : List String -> Maybe Component
 mapComponent parts =
     case parts of
         [ a, b ] ->
-            Maybe.map2 (\x y -> ( x, y )) (String.toInt a) (String.toInt b)
+            Maybe.map2 Tuple.pair (String.toInt a) (String.toInt b)
 
         _ ->
             Nothing
@@ -181,7 +181,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ ->
                 [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
                 , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]

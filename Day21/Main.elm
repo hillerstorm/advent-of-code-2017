@@ -3,20 +3,15 @@ module Day21.Main exposing (main)
 import Browser
 import Day21.Input exposing (rawInput)
 import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), count, flip, trigger, unique, unsafeGet)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), flip, trigger, unique)
+import Html exposing (Html, div, text)
 import List.Extra
 import String.Extra
 
 
-getUnsafe : Dict.Dict comparable v -> comparable -> v
-getUnsafe =
-    \b a -> unsafeGet a b
-
-
 type Input
     = NotParsed
-    | Parsed (Dict.Dict String (List String))
+    | Parsed (Dict String (List String))
 
 
 type alias Model =
@@ -76,21 +71,21 @@ parseRules str rules =
                 ( [ a, b, c, d ], [ e, f, g, h, i, j, k, l, m ] ) ->
                     let
                         repl =
-                            [ e :: f :: [ g ]
-                            , h :: i :: [ j ]
-                            , k :: l :: [ m ]
+                            [ [ e, f, g ]
+                            , [ h, i, j ]
+                            , [ k, l, m ]
                             ]
                                 |> List.map String.fromList
 
                         patterns =
-                            [ a :: b :: c :: [ d ]
-                            , c :: a :: d :: [ b ]
-                            , d :: c :: b :: [ a ]
-                            , b :: d :: a :: [ c ]
-                            , b :: a :: d :: [ c ]
-                            , c :: d :: a :: [ b ]
-                            , a :: c :: b :: [ d ]
-                            , d :: b :: c :: [ a ]
+                            [ [ a, b, c, d ]
+                            , [ c, a, d, b ]
+                            , [ d, c, b, a ]
+                            , [ b, d, a, c ]
+                            , [ b, a, d, c ]
+                            , [ c, d, a, b ]
+                            , [ a, c, b, d ]
+                            , [ d, b, c, a ]
                             ]
                                 |> unique
                                 |> List.map String.fromList
@@ -103,22 +98,22 @@ parseRules str rules =
                 ( [ a, b, c, d, e, f, g, h, i ], [ j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y ] ) ->
                     let
                         repl =
-                            [ j :: k :: l :: [ m ]
-                            , n :: o :: p :: [ q ]
-                            , r :: s :: t :: [ u ]
-                            , v :: w :: x :: [ y ]
+                            [ [ j, k, l, m ]
+                            , [ n, o, p, q ]
+                            , [ r, s, t, u ]
+                            , [ v, w, x, y ]
                             ]
                                 |> List.map String.fromList
 
                         patterns =
-                            [ a :: b :: c :: d :: e :: f :: g :: h :: [ i ]
-                            , g :: d :: a :: h :: e :: b :: i :: f :: [ c ]
-                            , i :: h :: g :: f :: e :: d :: c :: b :: [ a ]
-                            , c :: f :: i :: b :: e :: h :: a :: d :: [ g ]
-                            , c :: b :: a :: f :: e :: d :: i :: h :: [ g ]
-                            , g :: h :: i :: d :: e :: f :: a :: b :: [ c ]
-                            , a :: d :: g :: b :: e :: h :: c :: f :: [ i ]
-                            , i :: f :: c :: h :: e :: b :: g :: d :: [ a ]
+                            [ [ a, b, c, d, e, f, g, h, i ]
+                            , [ g, d, a, h, e, b, i, f, c ]
+                            , [ i, h, g, f, e, d, c, b, a ]
+                            , [ c, f, i, b, e, h, a, d, g ]
+                            , [ c, b, a, f, e, d, i, h, g ]
+                            , [ g, h, i, d, e, f, a, b, c ]
+                            , [ a, d, g, b, e, h, c, f, i ]
+                            , [ i, f, c, h, e, b, g, d, a ]
                             ]
                                 |> unique
                                 |> List.map String.fromList
@@ -174,20 +169,17 @@ pack rules colRange num width cols result len list =
     if len < num then
         let
             newResult =
-                colRange
-                    |> List.map (getUnsafe rules << mapWith list width cols)
+                List.filterMap (flip Dict.get rules << mapWith list width cols) colRange
                     |> (++) result
 
             newLen =
                 len + cols
         in
-        list
-            |> List.drop (cols * width)
+        List.drop (cols * width) list
             |> pack rules colRange num width cols newResult newLen
 
     else
-        result
-            |> List.Extra.groupsOf cols
+        List.Extra.groupsOf cols result
             |> List.map List.Extra.transpose
             |> List.concat
             |> List.concat
@@ -227,8 +219,7 @@ update msg model =
                             len // width // width
 
                         cols =
-                            num
-                                |> toFloat
+                            toFloat num
                                 |> sqrt
                                 |> floor
 
@@ -236,8 +227,7 @@ update msg model =
                             List.range 0 (cols - 1)
 
                         state =
-                            model.state
-                                |> String.Extra.break width
+                            String.Extra.break width model.state
                                 |> pack rules colRange num width cols [] 0
 
                         iterations =
@@ -287,7 +277,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ ->
                 [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
                 , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]

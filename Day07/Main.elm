@@ -2,8 +2,8 @@ module Day07.Main exposing (main)
 
 import Browser
 import Day07.Input exposing (Input, Prgrm, parsedInput)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 import List.Extra
 
 
@@ -124,9 +124,14 @@ update msg model =
             )
 
 
+print : Maybe String -> String
+print =
+    Maybe.withDefault "Calculating..."
+
+
 view : Model -> Html msg
 view model =
     div []
-        [ div [] [ text <| "Part 1: " ++ (model.firstPart |> Maybe.map .name |> prettyMaybe) ]
-        , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+        [ div [] [ text <| "Part 1: " ++ (model.firstPart |> Maybe.map .name |> print) ]
+        , div [] [ text <| "Part 2: " ++ print (Maybe.map String.fromInt model.secondPart) ]
         ]

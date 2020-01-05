@@ -3,7 +3,7 @@ module Day06.Main exposing (main)
 import Browser
 import Day06.Input exposing (Input, parsedInput)
 import Helpers.Helpers exposing (Delay(..), trigger)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 import List.Extra
 
 

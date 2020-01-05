@@ -519,9 +519,4 @@ rvbu czwpdit vmlihg spz lfaxxev zslfuto oog dvoksub"""
 
 parsedInput : List String
 parsedInput =
-    parse rawInput
-
-
-parse : String -> List String
-parse =
-    String.lines
+    String.lines rawInput

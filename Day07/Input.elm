@@ -1248,7 +1248,8 @@ cckrzh (6841) -> hdinwud, dqzkic, vrxkr"""
 
 parsedInput : Input
 parsedInput =
-    parse rawInput
+    String.lines rawInput
+        |> List.filterMap parseProgram
 
 
 trimComma : String -> String
@@ -1276,8 +1277,3 @@ parseProgram string =
 
         _ ->
             Nothing
-
-
-parse : String -> Input
-parse =
-    List.filterMap parseProgram << String.lines

@@ -2,7 +2,7 @@ module Template.Main exposing (main)
 
 import Browser
 import Helpers.Helpers exposing (Delay(..), trigger)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 import Template.Input exposing (rawInput)
 
 
@@ -67,7 +67,7 @@ update msg model =
                     , trigger WithDelay Parse
                     )
 
-                Parsed string ->
+                Parsed _ ->
                     ( model
                     , Cmd.none
                     )
@@ -85,7 +85,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ ->
                 [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
                 , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]

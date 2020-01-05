@@ -3,8 +3,8 @@ module Day22.Main exposing (main)
 import Browser
 import Day22.Input exposing (rawInput)
 import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), trigger)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), mapTuple, trigger)
+import Html exposing (Html, div, text)
 
 
 type Infection
@@ -18,9 +18,13 @@ type alias Position =
     ( Int, Int )
 
 
+type alias Grid =
+    Dict Position Infection
+
+
 type Input
     = NotParsed
-    | Parsed ( Position, Dict.Dict Position Infection )
+    | Parsed Position Grid
 
 
 type Direction
@@ -89,12 +93,11 @@ mapWithCoords y =
     List.indexedMap (\x chr -> ( ( x, negate y ), chr )) << List.filterMap mapChar << String.toList
 
 
-parse : String -> ( Position, Dict.Dict Position Infection )
+parse : String -> ( Position, Grid )
 parse input =
     let
         result =
-            input
-                |> String.lines
+            String.lines input
                 |> List.indexedMap mapWithCoords
                 |> List.concat
                 |> Dict.fromList
@@ -103,19 +106,17 @@ parse input =
             Dict.keys result
 
         x =
-            keys
-                |> List.map Tuple.first
+            List.map Tuple.first keys
                 |> List.maximum
                 |> Maybe.withDefault 0
-                |> (\b a -> (//) a b) 2
+                |> (\b a -> a // b) 2
 
         y =
-            keys
-                |> List.map Tuple.second
+            List.map Tuple.second keys
                 |> List.minimum
                 |> Maybe.withDefault 0
                 |> toFloat
-                |> (\b a -> (/) a b) 2
+                |> (\b a -> a / b) 2
                 |> ceiling
     in
     ( ( x, y ), result )
@@ -185,7 +186,7 @@ moveForward ( x, y ) direction =
             ( x + 1, y )
 
 
-runFirst : Dict.Dict Position Infection -> Position -> Direction -> Int -> Int -> Int
+runFirst : Grid -> Position -> Direction -> Int -> Int -> Int
 runFirst grid position direction infections iterations =
     if iterations == 10000 then
         infections
@@ -213,7 +214,7 @@ runFirst grid position direction infections iterations =
         runFirst newGrid newPosition newDirection newInfections <| iterations + 1
 
 
-runSecond : Dict.Dict Position Infection -> Position -> Direction -> Int -> Int -> Int
+runSecond : Grid -> Position -> Direction -> Int -> Int -> Int
 runSecond grid position direction infections iterations =
     if iterations == 10000000 then
         infections
@@ -251,12 +252,8 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Parse ->
-            let
-                ( position, parsedInput ) =
-                    parse model.input
-            in
             ( { model
-                | parsedInput = Parsed ( position, parsedInput )
+                | parsedInput = mapTuple Parsed <| parse model.input
               }
             , trigger WithDelay RunFirst
             )
@@ -268,7 +265,7 @@ update msg model =
                     , trigger WithDelay Parse
                     )
 
-                Parsed ( position, grid ) ->
+                Parsed position grid ->
                     ( { model
                         | firstPart = Just <| runFirst grid position Up 0 0
                       }
@@ -282,7 +279,7 @@ update msg model =
                     , trigger WithDelay Parse
                     )
 
-                Parsed ( position, grid ) ->
+                Parsed position grid ->
                     ( { model
                         | secondPart = Just <| runSecond grid position Up 0 0
                       }
@@ -302,7 +299,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ _ ->
                 [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
                 , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]

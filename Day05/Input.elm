@@ -1050,9 +1050,5 @@ rawInput =
 
 parsedInput : List Int
 parsedInput =
-    parse rawInput
-
-
-parse : String -> List Int
-parse =
-    List.filterMap String.toInt << String.lines
+    String.lines rawInput
+        |> List.filterMap String.toInt

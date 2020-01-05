@@ -6,7 +6,7 @@ import Char
 import Day10.Input exposing (rawInput)
 import Helpers.Helpers exposing (Delay(..), trigger)
 import Hex
-import Html exposing (..)
+import Html exposing (Html, div, text)
 
 
 type alias FirstPart =
@@ -70,17 +70,16 @@ init _ =
 
 
 toInt : String -> Maybe Int
-toInt str =
-    case String.toInt str of
-        Just val ->
+toInt =
+    Maybe.andThen
+        (\val ->
             if val > listLength then
                 Nothing
 
             else
                 Just val
-
-        Nothing ->
-            Nothing
+        )
+        << String.toInt
 
 
 parseFirst : String -> List Int
@@ -90,8 +89,7 @@ parseFirst str =
             []
 
         xs ->
-            xs
-                |> String.split ","
+            String.split "," xs
                 |> List.filterMap toInt
 
 
@@ -118,8 +116,7 @@ advance list idx step lengths =
                     afterIdx ++ List.take idx list
 
                 reversed =
-                    sliced
-                        |> List.take x
+                    List.take x sliced
                         |> List.reverse
 
                 reSliced =
@@ -187,7 +184,7 @@ calcDense result list =
 
 getKnotHash : List Int -> String
 getKnotHash =
-    List.foldl (\b a -> (++) a b) "" << List.map (String.padLeft 2 '0' << Hex.toString) << calcDense []
+    List.foldl (\b a -> a ++ b) "" << List.map (String.padLeft 2 '0' << Hex.toString) << calcDense []
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -269,7 +266,7 @@ update msg model =
                     let
                         result =
                             case first.list of
-                                x :: y :: xs ->
+                                x :: y :: _ ->
                                     Just <| x * y
 
                                 _ ->
@@ -367,18 +364,13 @@ update msg model =
 
 
 print : Maybe { a | result : Maybe b } -> String
-print part =
-    case part of
-        Just x ->
-            case x.result of
-                Just val ->
-                    Debug.toString val
-
-                Nothing ->
-                    "Calculating..."
-
-        Nothing ->
-            "Parsing..."
+print =
+    Maybe.withDefault "Parsing..."
+        << Maybe.map
+            (Maybe.withDefault "Calculating..."
+                << Maybe.map Debug.toString
+                << .result
+            )
 
 
 view : Model -> Html msg

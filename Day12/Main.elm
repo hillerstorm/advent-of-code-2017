@@ -3,14 +3,14 @@ module Day12.Main exposing (countGroups, getGroup, main)
 import Browser
 import Day12.Input exposing (rawInput)
 import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger, unsafeGet)
-import Html exposing (..)
-import Set
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
+import Set exposing (Set)
 
 
 type Input
     = NotParsed
-    | Parsed (Dict.Dict Int (Set.Set Int))
+    | Parsed (Dict Int (Set Int))
 
 
 type alias Model =
@@ -64,20 +64,17 @@ parseLine : String -> Maybe ( Int, Set.Set Int )
 parseLine line =
     case String.split " " line of
         key :: "<->" :: first :: xs ->
-            case toInt key of
-                Just iKey ->
+            Maybe.map
+                (\iKey ->
                     let
                         rest =
-                            first
-                                :: xs
-                                |> List.filterMap toInt
+                            List.filterMap toInt (first :: xs)
                                 |> List.filter ((/=) iKey)
                                 |> Set.fromList
                     in
-                    Just ( iKey, rest )
-
-                Nothing ->
-                    Nothing
+                    ( iKey, rest )
+                )
+                (toInt key)
 
         _ ->
             Nothing
@@ -88,46 +85,32 @@ parse =
     Parsed << Dict.fromList << List.filterMap parseLine << String.lines
 
 
-getGroup : Set.Set Int -> Dict.Dict Int (Set.Set Int) -> Set.Set Int -> Set.Set Int
+getGroup : Set.Set Int -> Dict.Dict Int (Set.Set Int) -> Set.Set Int -> Maybe (Set.Set Int)
 getGroup set dict result =
-    let
-        toCheck =
-            Set.diff set result
-    in
-    case Set.toList toCheck of
+    case Set.toList <| Set.diff set result of
         [] ->
-            result
+            Just result
 
         x :: xs ->
-            let
-                value =
-                    unsafeGet x dict
-
-                newResult =
-                    getGroup value dict <| Set.insert x result
-            in
-            getGroup (Set.fromList xs) dict newResult
+            Dict.get x dict
+                |> Maybe.andThen (\value -> getGroup value dict <| Set.insert x result)
+                |> Maybe.andThen (getGroup (Set.fromList xs) dict)
 
 
-countGroups : Set.Set Int -> Dict.Dict Int (Set.Set Int) -> Int -> Int
+countGroups : Set.Set Int -> Dict.Dict Int (Set.Set Int) -> Int -> Maybe Int
 countGroups toRemove dict cnt =
     let
         newDict =
-            Dict.filter (\k v -> not <| Set.member k toRemove) dict
+            Dict.filter (\k _ -> not <| Set.member k toRemove) dict
     in
     case Dict.keys newDict of
         [] ->
-            cnt
+            Just cnt
 
         x :: _ ->
-            let
-                value =
-                    unsafeGet x newDict
-
-                newToRemove =
-                    getGroup value newDict <| Set.singleton x
-            in
-            countGroups newToRemove newDict <| cnt + 1
+            Dict.get x newDict
+                |> Maybe.andThen (\value -> getGroup value newDict <| Set.singleton x)
+                |> Maybe.andThen (\newToRemove -> countGroups newToRemove newDict <| cnt + 1)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -148,22 +131,23 @@ update msg model =
                     )
 
                 Parsed dict ->
-                    let
-                        zeroValue =
-                            unsafeGet 0 dict
-
-                        groupZero =
-                            getGroup zeroValue dict <| Set.singleton 0
-
-                        secondPart =
-                            countGroups groupZero dict 1
-                    in
-                    ( { model
-                        | firstPart = Just <| Set.size groupZero
-                        , secondPart = Just secondPart
-                      }
+                    ( Dict.get 0 dict
+                        |> Maybe.andThen (\zero -> getGroup zero dict <| Set.singleton 0)
+                        |> Maybe.map
+                            (\groupZero ->
+                                { model
+                                    | firstPart = Just <| Set.size groupZero
+                                    , secondPart = countGroups groupZero dict 1
+                                }
+                            )
+                        |> Maybe.withDefault model
                     , Cmd.none
                     )
+
+
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
 
 
 view : Model -> Html msg
@@ -173,8 +157,8 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
-                [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-                , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+            Parsed _ ->
+                [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+                , div [] [ text <| "Part 2: " ++ print model.secondPart ]
                 ]
         )

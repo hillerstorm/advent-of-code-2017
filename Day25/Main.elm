@@ -3,8 +3,8 @@ module Day25.Main exposing (main)
 import Browser
 import Day25.Input exposing (rawInput)
 import Dict exposing (Dict)
-import Helpers.Helpers exposing (Delay(..), trigger, unsafeGet, unsafeToInt)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 import List.Extra
 
 
@@ -28,7 +28,7 @@ type alias State =
 
 type Input
     = NotParsed
-    | Parsed ( Dict.Dict String State, Int, String )
+    | Parsed ( Dict String State, Int, String )
 
 
 type alias Tape =
@@ -88,8 +88,7 @@ mapValueDef str =
         [ [ "-", "Write", "the", "value", x ], [ "-", "Move", "one", "slot", "to", "the", y ], [ "-", "Continue", "with", "state", z ] ] ->
             let
                 value =
-                    x
-                        |> String.dropRight 1
+                    String.dropRight 1 x
                         |> String.toInt
 
                 direction =
@@ -112,22 +111,20 @@ mapValueDef str =
             Nothing
 
 
-toValueDef : List (List (List String)) -> Maybe ( ValueDef, ValueDef )
+toValueDef : List (List (List String)) -> Maybe State
 toValueDef list =
     case list of
         [ _ :: x, _ :: y ] ->
             let
                 zero =
-                    x
-                        |> List.Extra.takeWhile (not << isValueDef)
+                    List.Extra.takeWhile (not << isValueDef) x
                         |> mapValueDef
 
                 one =
-                    y
-                        |> List.Extra.takeWhile (not << isValueDef)
+                    List.Extra.takeWhile (not << isValueDef) y
                         |> mapValueDef
             in
-            Maybe.map2 (\a b -> ( a, b )) zero one
+            Maybe.map2 State zero one
 
         _ ->
             Nothing
@@ -137,18 +134,11 @@ mapState : List String -> List (List String) -> Maybe ( String, State )
 mapState head xs =
     case head of
         [ "In", "state", x ] ->
-            let
-                name =
-                    String.dropRight 1 x
-
-                valueDef =
-                    xs
-                        |> List.Extra.takeWhile (not << isNewState)
-                        |> List.Extra.tails
-                        |> List.filter (Maybe.withDefault False << Maybe.map isValueDef << List.head)
-                        |> toValueDef
-            in
-            Maybe.map (\( zero, one ) -> ( name, State zero one )) valueDef
+            List.Extra.takeWhile (not << isNewState) xs
+                |> List.Extra.tails
+                |> List.filter (Maybe.withDefault False << Maybe.map isValueDef << List.head)
+                |> toValueDef
+                |> Maybe.map (\state -> ( String.dropRight 1 x, state ))
 
         _ ->
             Nothing
@@ -172,9 +162,6 @@ parse input =
                 currentState =
                     String.dropRight 1 x
 
-                steps =
-                    unsafeToInt y
-
                 states =
                     xs
                         |> List.Extra.tails
@@ -185,12 +172,12 @@ parse input =
                 invalidStates =
                     states
                         |> Dict.values
-                        |> List.concatMap (\a -> Dict.get a.zero.nextState states :: [ Dict.get a.one.nextState states ])
+                        |> List.concatMap (\a -> [ Dict.get a.zero.nextState states, Dict.get a.one.nextState states ])
                         |> List.filter ((==) Nothing)
                         |> List.length
             in
-            case ( Dict.get currentState states, invalidStates ) of
-                ( Just _, 0 ) ->
+            case ( Dict.get currentState states, invalidStates, String.toInt y ) of
+                ( Just _, 0, Just steps ) ->
                     Just <| Parsed ( states, steps, currentState )
 
                 _ ->
@@ -201,7 +188,7 @@ parse input =
 
 
 nextTape : Tape -> ValueDef -> Tape
-nextTape ( lft, cur, rgt ) { direction, value } =
+nextTape ( lft, _, rgt ) { direction, value } =
     case direction of
         Left ->
             let
@@ -220,24 +207,25 @@ nextTape ( lft, cur, rgt ) { direction, value } =
             ( value :: lft, x, xs )
 
 
-runFirst : Dict.Dict String State -> Int -> String -> Tape -> Int
+runFirst : Dict.Dict String State -> Int -> String -> Tape -> Maybe Int
 runFirst states steps currentState ( lft, cur, rgt ) =
     if steps == 0 then
-        List.sum (lft ++ [ cur ] ++ rgt)
+        Just (List.sum (lft ++ cur :: rgt))
 
     else
-        let
-            { zero, one } =
-                unsafeGet currentState states
+        Dict.get currentState states
+            |> Maybe.andThen
+                (\state ->
+                    let
+                        todo =
+                            if cur == 0 then
+                                state.zero
 
-            todo =
-                if cur == 0 then
-                    zero
-
-                else
-                    one
-        in
-        runFirst states (steps - 1) todo.nextState <| nextTape ( lft, cur, rgt ) todo
+                            else
+                                state.one
+                    in
+                    runFirst states (steps - 1) todo.nextState <| nextTape ( lft, cur, rgt ) todo
+                )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -263,12 +251,8 @@ update msg model =
                     )
 
                 Parsed ( states, steps, startingState ) ->
-                    let
-                        result =
-                            runFirst states steps startingState ( [], 0, [] )
-                    in
                     ( { model
-                        | result = Just result
+                        | result = runFirst states steps startingState ( [], 0, [] )
                       }
                     , Cmd.none
                     )
@@ -286,7 +270,7 @@ view model =
             NotParsed ->
                 [ div [] [ text "Parsing..." ] ]
 
-            Parsed input ->
+            Parsed _ ->
                 [ div [] [ text <| "Result: " ++ print model.result ]
                 ]
         )

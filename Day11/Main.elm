@@ -2,8 +2,8 @@ module Day11.Main exposing (main)
 
 import Browser
 import Day11.Input exposing (rawInput)
-import Helpers.Helpers exposing (Delay(..), prettyMaybe, trigger)
-import Html exposing (..)
+import Helpers.Helpers exposing (Delay(..), trigger)
+import Html exposing (Html, div, text)
 
 
 type Move
@@ -168,12 +168,17 @@ update msg model =
             )
 
 
+print : Maybe Int -> String
+print =
+    Maybe.withDefault "Calculating..." << Maybe.map String.fromInt
+
+
 view : Model -> Html msg
 view model =
     div []
         (if String.isEmpty model.input then
-            [ div [] [ text <| "Part 1: " ++ prettyMaybe model.firstPart ]
-            , div [] [ text <| "Part 2: " ++ prettyMaybe model.secondPart ]
+            [ div [] [ text <| "Part 1: " ++ print model.firstPart ]
+            , div [] [ text <| "Part 2: " ++ print model.secondPart ]
             ]
 
          else
