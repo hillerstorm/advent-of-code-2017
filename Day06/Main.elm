@@ -104,7 +104,7 @@ advance current seen =
         ( newCurrent, seen )
 
     else
-        advance newCurrent <| newCurrent :: seen
+        advance newCurrent (newCurrent :: seen)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

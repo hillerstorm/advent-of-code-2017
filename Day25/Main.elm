@@ -213,19 +213,20 @@ runFirst states steps currentState ( lft, cur, rgt ) =
         Just (List.sum (lft ++ cur :: rgt))
 
     else
-        Dict.get currentState states
-            |> Maybe.andThen
-                (\state ->
-                    let
-                        todo =
-                            if cur == 0 then
-                                state.zero
+        case Dict.get currentState states of
+            Just state ->
+                let
+                    todo =
+                        if cur == 0 then
+                            state.zero
 
-                            else
-                                state.one
-                    in
-                    runFirst states (steps - 1) todo.nextState <| nextTape ( lft, cur, rgt ) todo
-                )
+                        else
+                            state.one
+                in
+                runFirst states (steps - 1) todo.nextState (nextTape ( lft, cur, rgt ) todo)
+
+            _ ->
+                Nothing
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

@@ -96,7 +96,7 @@ findOffset layers offset =
         offset
 
     else
-        findOffset layers <| offset + 1
+        findOffset layers (offset + 1)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

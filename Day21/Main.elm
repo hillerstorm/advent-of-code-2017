@@ -174,9 +174,11 @@ pack rules colRange num width cols result len list =
 
             newLen =
                 len + cols
+
+            newList =
+                List.drop (cols * width) list
         in
-        List.drop (cols * width) list
-            |> pack rules colRange num width cols newResult newLen
+        pack rules colRange num width cols newResult newLen newList
 
     else
         List.Extra.groupsOf cols result

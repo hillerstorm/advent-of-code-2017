@@ -64,7 +64,7 @@ findSecondPart inp index next len i =
             nextLen =
                 len + 1
         in
-        findSecondPart inp nextIndex newNext nextLen <| i + 1
+        findSecondPart inp nextIndex newNext nextLen (i + 1)
 
     else
         next

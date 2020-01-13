@@ -177,7 +177,7 @@ update msg model =
                                 }
                         , pos = ( idx, 0 )
                       }
-                    , trigger WithDelay Run
+                    , trigger NoDelay Run
                     )
 
                 Nothing ->
@@ -255,7 +255,7 @@ update msg model =
                                     []
 
                                 Nothing ->
-                                    [ trigger (DelayWithMs 0) Run ]
+                                    [ trigger NoDelay Run ]
                     in
                     ( { model
                         | direction = direction

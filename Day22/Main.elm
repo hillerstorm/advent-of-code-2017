@@ -211,7 +211,7 @@ runFirst grid position direction infections iterations =
             newGrid =
                 Dict.insert position newState grid
         in
-        runFirst newGrid newPosition newDirection newInfections <| iterations + 1
+        runFirst newGrid newPosition newDirection newInfections (iterations + 1)
 
 
 runSecond : Grid -> Position -> Direction -> Int -> Int -> Int
@@ -245,7 +245,7 @@ runSecond grid position direction infections iterations =
             newGrid =
                 Dict.insert position newState grid
         in
-        runSecond newGrid newPosition newDirection newInfections <| iterations + 1
+        runSecond newGrid newPosition newDirection newInfections (iterations + 1)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
